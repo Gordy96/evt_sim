@@ -36,7 +36,7 @@ func main() {
 	pq := internal.PriorityQueue[*Message]{}
 	heap.Init(&pq)
 
-	makeSender := func(dst string) func(self *Node, msg *Message, timestamp time.Time) {
+	makeSender := func() func(self *Node, msg *Message, timestamp time.Time) {
 		return func(self *Node, msg *Message, timestamp time.Time) {
 			j, _ := json.Marshal(msg)
 			fmt.Printf("[%s] node '%s' received message: %s\n", time.Now().Format(time.RFC3339Nano), self.ID, j)
@@ -55,7 +55,7 @@ func main() {
 					ID:          fmt.Sprintf("%d", i+1),
 					Kind:        msg.Kind,
 					Src:         self.ID,
-					Dst:         dst,
+					Dst:         msg.Src,
 					TimestampNS: timestamp.Add(100 * time.Millisecond),
 				})
 				tries--
@@ -79,12 +79,12 @@ func main() {
 					},
 				})
 			},
-			OnMessage: makeSender("second"),
+			OnMessage: makeSender(),
 			Params:    make(map[string]interface{}),
 		}, {
 			ID:        "second",
 			Init:      func(self *Node) {},
-			OnMessage: makeSender("first"),
+			OnMessage: makeSender(),
 			Params:    make(map[string]interface{}),
 		},
 	}
