@@ -44,6 +44,12 @@ func (b *BaseNode) HandleMessage(msg *nodes.Message, sim *nodes.Simulation, time
 	switch msg.Kind {
 	case nodes.KindDelay:
 		sim.Log("node '%s' finished sleep, sending message over radio", b.ID())
+		_, ok := b.Param("onWakeDoNothing")
+		if ok {
+			sim.Log("node '%s' won't do anything on wake", b.ID())
+			return
+		}
+		delete(b.params, "busy")
 		sim.SendMessage(&nodes.Message{
 			ID:        "some message",
 			Src:       b.ID(),
@@ -66,6 +72,7 @@ func main() {
 			id: "first",
 			init: func(self *BaseNode, sim *nodes.Simulation) {
 				sim.Delay(self, 1000*time.Millisecond)
+				self.SetParam("busy", true)
 			},
 			params: map[string]any{
 				"radioFrequency": 433.0,
@@ -77,11 +84,22 @@ func main() {
 				"radioFrequency": 433.0,
 			},
 		},
+		//going to miss because it's busy
+		&BaseNode{
+			id: "fourth",
+			init: func(self *BaseNode, sim *nodes.Simulation) {
+				sim.Delay(self, 5000*time.Millisecond)
+				self.SetParam("busy", true)
+			},
+			params: map[string]any{
+				"radioFrequency": 433.0,
+			},
+		},
 		//third one would never recieve any messages
 		&BaseNode{
 			id: "third",
 			params: map[string]any{
-				"radioFrequency": 015.0,
+				"radioFrequency": 915.0,
 			},
 		},
 		//radio medium is also a node that can recieve messages

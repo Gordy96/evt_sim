@@ -60,7 +60,8 @@ func (r *RadioMedium) HandleMessage(msg *Message, sim *Simulation, timestamp tim
 	srcFreq := getFrequency(nodes[msg.Src])
 
 	for _, node := range nodes {
-		if getFrequency(node) == srcFreq && msg.Src != node.ID() {
+		_, busy := node.Param("busy")
+		if getFrequency(node) == srcFreq && msg.Src != node.ID() && !busy {
 			newMsg := *msg
 			newMsg.Dst = node.ID()
 			newMsg.Src = "radio"
