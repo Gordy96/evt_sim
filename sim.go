@@ -1,106 +1,92 @@
 package main
 
 import (
-	"container/heap"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"time"
 
-	"github.com/Gordy96/evt-sim/internal"
+	"github.com/Gordy96/evt-sim/nodes"
 )
 
-type MessageKind uint64
-
-type Message struct {
-	ID          string
-	Src         string
-	Dst         string
-	Kind        MessageKind
-	TimestampNS time.Time
-	Params      map[string]interface{}
+type BaseNode struct {
+	id     string
+	params map[string]any
+	init   func(*BaseNode, *nodes.Simulation)
 }
 
-func (m *Message) Priority() int64 {
-	return m.TimestampNS.UnixNano()
+func (b *BaseNode) ID() string {
+	return b.id
 }
 
-type Node struct {
-	ID        string
-	Params    map[string]interface{}
-	Init      func(self *Node)
-	OnMessage func(self *Node, msg *Message, timestamp time.Time)
+func (b *BaseNode) Param(name string) (any, bool) {
+	if b.params == nil {
+		return nil, false
+	}
+
+	r, ok := b.params[name]
+	return r, ok
+}
+
+func (b *BaseNode) SetParam(name string, value any) {
+	if b.params == nil {
+		b.params = make(map[string]any)
+	}
+
+	b.params[name] = value
+}
+
+func (b *BaseNode) Init(sim *nodes.Simulation) {
+	if b.init != nil {
+		b.init(b, sim)
+	}
+}
+
+func (b *BaseNode) HandleMessage(msg *nodes.Message, sim *nodes.Simulation, timestamp time.Time) {
+	switch msg.Kind {
+	case nodes.KindDelay:
+		fmt.Printf("[%s] node '%s' finished sleep, sending message over radio\n", time.Now().Format(time.RFC3339Nano), b.ID())
+		sim.SendMessage(&nodes.Message{
+			ID:        "some message",
+			Src:       b.ID(),
+			Dst:       "radio",
+			Kind:      nodes.KindMessage,
+			Timestamp: timestamp.Add(10 * time.Millisecond),
+			Params: map[string]any{
+				"payload": "hello world!!!",
+			},
+		})
+	case nodes.KindMessage:
+		j, _ := json.Marshal(msg)
+		fmt.Printf("[%s] node '%s' received message: %s\n", time.Now().Format(time.RFC3339Nano), b.ID(), j)
+	}
 }
 
 func main() {
-	pq := internal.PriorityQueue[*Message]{}
-	heap.Init(&pq)
-
-	makeSender := func() func(self *Node, msg *Message, timestamp time.Time) {
-		return func(self *Node, msg *Message, timestamp time.Time) {
-			j, _ := json.Marshal(msg)
-			fmt.Printf("[%s] node '%s' received message: %s\n", time.Now().Format(time.RFC3339Nano), self.ID, j)
-			itries, ok := self.Params["retries"]
-			var tries int
-			if !ok {
-				self.Params["retries"] = 3
-				tries = 3
-			} else {
-				tries = itries.(int)
-			}
-
-			if tries > 0 {
-				i, _ := strconv.ParseInt(msg.ID, 10, 64)
-				heap.Push(&pq, &Message{
-					ID:          fmt.Sprintf("%d", i+1),
-					Kind:        msg.Kind,
-					Src:         self.ID,
-					Dst:         msg.Src,
-					TimestampNS: timestamp.Add(100 * time.Millisecond),
-				})
-				tries--
-				self.Params["retries"] = tries
-			}
-		}
-	}
-
-	nodes := []Node{
-		{
-			ID: "first",
-			Init: func(self *Node) {
-				heap.Push(&pq, &Message{
-					ID:          "1",
-					Kind:        0,
-					Src:         self.ID,
-					Dst:         "second",
-					TimestampNS: time.Now(),
-					Params: map[string]interface{}{
-						"foo": "bar",
-					},
-				})
+	sim := nodes.NewSimulation([]nodes.Node{
+		&BaseNode{
+			id: "first",
+			init: func(self *BaseNode, sim *nodes.Simulation) {
+				sim.Delay(self, 1000*time.Millisecond)
 			},
-			OnMessage: makeSender(),
-			Params:    make(map[string]interface{}),
-		}, {
-			ID:        "second",
-			Init:      func(self *Node) {},
-			OnMessage: makeSender(),
-			Params:    make(map[string]interface{}),
+			params: map[string]any{
+				"radioFrequency": 433.0,
+			},
 		},
-	}
+		&BaseNode{
+			id: "second",
+			params: map[string]any{
+				"radioFrequency": 433.0,
+			},
+		},
+		//third one would never recieve any messages
+		&BaseNode{
+			id: "third",
+			params: map[string]any{
+				"radioFrequency": 015.0,
+			},
+		},
+		nodes.NewRadioMedium(100 * time.Millisecond),
+	})
 
-	for _, node := range nodes {
-		if node.Init != nil {
-			node.Init(&node)
-		}
-	}
-
-	for pq.Len() > 0 {
-		msg := heap.Pop(&pq).(*Message)
-		for _, node := range nodes {
-			if node.ID == msg.Dst {
-				node.OnMessage(&node, msg, msg.TimestampNS)
-			}
-		}
-	}
+	sim.Run()
 }
