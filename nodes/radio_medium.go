@@ -2,7 +2,6 @@ package nodes
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 )
 
@@ -46,7 +45,7 @@ func (r *RadioMedium) Init(sim *Simulation) {
 
 func (r *RadioMedium) HandleMessage(msg *Message, sim *Simulation, timestamp time.Time) {
 	j, _ := json.Marshal(msg)
-	fmt.Printf("[%s] radio medium, aka air received message: %s\n", time.Now().Format(time.RFC3339Nano), j)
+	sim.Log("radio medium, aka air received message: %s", j)
 
 	//here you can handle geo positioning, frequency node state etc
 	nodes := sim.Nodes()

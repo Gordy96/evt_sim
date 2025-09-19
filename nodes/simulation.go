@@ -37,8 +37,9 @@ type Node interface {
 }
 
 type Simulation struct {
-	pq    internal.PriorityQueue[*Message]
-	nodes map[string]Node
+	pq      internal.PriorityQueue[*Message]
+	nodes   map[string]Node
+	simTime time.Time
 }
 
 func (s *Simulation) Nodes() map[string]Node {
@@ -49,20 +50,29 @@ func (s *Simulation) SendMessage(msg *Message) {
 	heap.Push(&s.pq, msg)
 }
 
+func (s *Simulation) Log(format string, a ...any) {
+	args := []any{time.Now().Format(time.RFC3339Nano), s.simTime.Format(time.RFC3339Nano)}
+	args = append(args, a...)
+	fmt.Printf("[%s | %s] "+format+"\n", args...)
+}
+
 func (s *Simulation) Delay(node Node, delay time.Duration) {
-	fmt.Printf("[%s] node '%s' goes to sleep for %s\n", time.Now().Format(time.RFC3339Nano), node.ID(), delay)
+	s.Log("node '%s' goes to sleep for %s", node.ID(), delay)
 	heap.Push(&s.pq, &Message{
 		ID:        "",
 		Src:       node.ID(),
 		Dst:       node.ID(),
 		Kind:      KindDelay,
-		Timestamp: time.Now().Add(delay),
+		Timestamp: s.simTime.Add(delay),
 	})
 }
 
 func (s *Simulation) Run() {
-	fmt.Printf("[%s] start\n", time.Now().Format(time.RFC3339Nano))
 	heap.Init(&s.pq)
+
+	s.simTime = time.Now()
+
+	s.Log("start")
 
 	for _, node := range s.nodes {
 		node.Init(s)
@@ -70,13 +80,18 @@ func (s *Simulation) Run() {
 
 	for s.pq.Len() > 0 {
 		msg := heap.Pop(&s.pq).(*Message)
+		s.simTime = msg.Timestamp
 		for _, node := range s.nodes {
 			if node.ID() == msg.Dst {
 				node.HandleMessage(msg, s, msg.Timestamp)
 			}
 		}
 	}
-	fmt.Printf("[%s] finish\n", time.Now().Format(time.RFC3339Nano))
+	s.Log("finish")
+}
+
+func (s *Simulation) Time() time.Time {
+	return s.simTime
 }
 
 func NewSimulation(nodes []Node) *Simulation {

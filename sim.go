@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/Gordy96/evt-sim/nodes"
@@ -44,7 +43,7 @@ func (b *BaseNode) Init(sim *nodes.Simulation) {
 func (b *BaseNode) HandleMessage(msg *nodes.Message, sim *nodes.Simulation, timestamp time.Time) {
 	switch msg.Kind {
 	case nodes.KindDelay:
-		fmt.Printf("[%s] node '%s' finished sleep, sending message over radio\n", time.Now().Format(time.RFC3339Nano), b.ID())
+		sim.Log("node '%s' finished sleep, sending message over radio", b.ID())
 		sim.SendMessage(&nodes.Message{
 			ID:        "some message",
 			Src:       b.ID(),
@@ -57,7 +56,7 @@ func (b *BaseNode) HandleMessage(msg *nodes.Message, sim *nodes.Simulation, time
 		})
 	case nodes.KindMessage:
 		j, _ := json.Marshal(msg)
-		fmt.Printf("[%s] node '%s' received message: %s\n", time.Now().Format(time.RFC3339Nano), b.ID(), j)
+		sim.Log("node '%s' received message: %s", b.ID(), j)
 	}
 }
 
