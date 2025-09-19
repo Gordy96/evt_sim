@@ -84,6 +84,10 @@ func main() {
 				"radioFrequency": 015.0,
 			},
 		},
+		//radio medium is also a node that can recieve messages
+		//think of it as 'aether' anything that has radio can talk to it,
+		//then it decides what nodes should recieve message (effectively duplicating messages)
+		//based on node parameters (potentially nodes can have ports/interfaces, that would hold parameters/talk to 'aether')
 		nodes.NewRadioMedium(100 * time.Millisecond),
 	})
 

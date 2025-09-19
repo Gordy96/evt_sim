@@ -81,11 +81,8 @@ func (s *Simulation) Run() {
 	for s.pq.Len() > 0 {
 		msg := heap.Pop(&s.pq).(*Message)
 		s.simTime = msg.Timestamp
-		for _, node := range s.nodes {
-			if node.ID() == msg.Dst {
-				node.HandleMessage(msg, s, msg.Timestamp)
-			}
-		}
+		node := s.nodes[msg.Dst]
+		node.HandleMessage(msg, s, msg.Timestamp)
 	}
 	s.Log("finish")
 }
