@@ -1,11 +1,10 @@
 package nodes
 
 import (
-	"container/heap"
 	"fmt"
 	"time"
 
-	"github.com/Gordy96/evt-sim/internal"
+	"github.com/Gordy96/evt-sim/internal/pq"
 )
 
 type MessageKind uint64
@@ -37,7 +36,7 @@ type Node interface {
 }
 
 type Simulation struct {
-	pq      internal.PriorityQueue[*Message]
+	pq      *pq.PriorityQueue[*Message]
 	nodes   map[string]Node
 	now     time.Time
 	elapsed time.Duration
@@ -48,7 +47,7 @@ func (s *Simulation) Nodes() map[string]Node {
 }
 
 func (s *Simulation) SendMessage(msg *Message) {
-	heap.Push(&s.pq, msg)
+	s.pq.Push(msg)
 }
 
 func (s *Simulation) Log(format string, a ...any) {
@@ -59,7 +58,7 @@ func (s *Simulation) Log(format string, a ...any) {
 
 func (s *Simulation) Delay(node Node, delay time.Duration) {
 	s.Log("node '%s' goes to sleep for %s", node.ID(), delay)
-	heap.Push(&s.pq, &Message{
+	s.pq.Push(&Message{
 		ID:        "",
 		Src:       node.ID(),
 		Dst:       node.ID(),
@@ -69,8 +68,6 @@ func (s *Simulation) Delay(node Node, delay time.Duration) {
 }
 
 func (s *Simulation) Run() {
-	heap.Init(&s.pq)
-
 	s.now = time.Now()
 
 	start := s.now
@@ -82,7 +79,7 @@ func (s *Simulation) Run() {
 	}
 
 	for s.pq.Len() > 0 {
-		msg := heap.Pop(&s.pq).(*Message)
+		msg := s.pq.Pop()
 		s.elapsed += msg.Timestamp.Sub(s.now)
 		s.now = msg.Timestamp
 		node := s.nodes[msg.Dst]
@@ -103,7 +100,7 @@ func NewSimulation(nodes []Node) *Simulation {
 	}
 
 	return &Simulation{
-		pq:    internal.PriorityQueue[*Message]{},
+		pq:    pq.New[*Message](),
 		nodes: n,
 	}
 }
