@@ -1,10 +1,10 @@
 package simulation
 
 type ParameterBag struct {
-	params map[string]interface{}
+	params map[string]any
 }
 
-func (p *ParameterBag) Param(name string) (any, bool) {
+func (p *ParameterBag) GetParam(name string) (any, bool) {
 	if p.params == nil {
 		return nil, false
 	}
@@ -19,4 +19,10 @@ func (p *ParameterBag) SetParam(name string, value any) {
 	}
 
 	p.params[name] = value
+}
+
+func (p *ParameterBag) RemoveParam(name string) {
+	if p.params != nil {
+		delete(p.params, name)
+	}
 }

@@ -48,7 +48,7 @@ func (s *Simulation) Now() time.Time {
 	return s.now
 }
 
-func NewSimulation(nodes []Node) *Simulation {
+func NewSimulation(l *zap.Logger, nodes []Node) *Simulation {
 	n := make(map[string]Node)
 
 	for _, node := range nodes {
@@ -56,6 +56,7 @@ func NewSimulation(nodes []Node) *Simulation {
 	}
 
 	return &Simulation{
+		l:     l.Named("simulation"),
 		pq:    pq.New[*Message](),
 		nodes: n,
 	}
