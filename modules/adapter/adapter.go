@@ -1,8 +1,6 @@
 package adapter
 
 /*
-#cgo LDFLAGS: -ldl
-#include <dlfcn.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdio.h>
