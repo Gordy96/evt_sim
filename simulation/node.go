@@ -5,4 +5,5 @@ type Node interface {
 	GetParam(name string) (any, bool)
 	OnMessage(msg *Message)
 	Init(env Environment)
+	Close() error
 }

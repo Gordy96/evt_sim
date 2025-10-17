@@ -2,11 +2,11 @@ package simulation
 
 import "time"
 
-type MessageKind uint64
+type MessageKind string
 
 const (
-	KindDelay MessageKind = iota
-	KindMessage
+	KindDelay   MessageKind = "delay"
+	KindMessage             = "message"
 )
 
 type Message struct {

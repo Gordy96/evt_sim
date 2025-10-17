@@ -45,9 +45,11 @@ import "C"
 import (
 	"fmt"
 	"runtime/cgo"
+	"time"
 	"unsafe"
 
 	"github.com/Gordy96/cgo_dl/dl"
+	"github.com/Gordy96/evt-sim/simulation"
 )
 
 //export goLog
@@ -89,7 +91,7 @@ func attachTimeInterrupt(ctx *C.void, timeMS C.int, periodic C.short, cb C.inter
 		key += "_periodic"
 	}
 	c.timerInterrupts[key] = cfg
-	//TODO: schedule through Adapter/Env.sendMessage etc
+	c.schedule(key, cfg.timeMS)
 }
 
 //export goRead
@@ -126,14 +128,14 @@ func goWrite(ctx *C.void, port *C.char, buf *C.char, size C.int) C.int {
 //export dataGetter
 func dataGetter(ctx *C.void, name *C.char) *C.void {
 	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Adapter)
-	v, _ := a.params[C.GoString(name)].(unsafe.Pointer)
+	v, _ := a.mem[C.GoString(name)].(unsafe.Pointer)
 	return (*C.void)(v)
 }
 
 //export dataSetter
 func dataSetter(ctx *C.void, name *C.char, value *C.void) {
 	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Adapter)
-	a.params[C.GoString(name)] = unsafe.Pointer(value)
+	a.mem[C.GoString(name)] = unsafe.Pointer(value)
 }
 
 type Port interface {
@@ -142,7 +144,10 @@ type Port interface {
 	Read([]byte) (int, error)
 }
 
+var _ simulation.Node = (*Adapter)(nil)
+
 type Adapter struct {
+	simulation.ParameterBag
 	selfUnsafe      cgo.Handle
 	id              string
 	initFunc        C.init_func_t
@@ -150,7 +155,8 @@ type Adapter struct {
 	pinInterrupts   map[string]pinInterruptConfig
 	timerInterrupts map[string]timerInterruptConfig
 	ports           map[string]Port
-	params          map[string]interface{}
+	mem             map[string]interface{}
+	env             simulation.Environment
 }
 
 func (a *Adapter) Close() error {
@@ -163,27 +169,42 @@ func (a *Adapter) ID() string {
 	return a.id
 }
 
-func (a *Adapter) Init() error {
+func (a *Adapter) Init(env simulation.Environment) {
+	a.env = env
 	C.tInit(unsafe.Pointer(a.selfUnsafe), a.initFunc)
-	return nil
+}
+
+func (a *Adapter) OnMessage(msg *simulation.Message) {
+	switch msg.Kind {
+	case simulation.KindDelay:
+		key := msg.Params["key"].(string)
+		if i, ok := a.timerInterrupts[key]; ok {
+			C.tInterrupt(unsafe.Pointer(a.selfUnsafe), i.cb)
+			if i.periodic {
+				a.schedule(key, i.timeMS)
+			}
+		}
+	case simulation.KindMessage:
+
+	}
+}
+
+func (a *Adapter) schedule(key string, timeMS int) {
+	a.env.SendMessage(&simulation.Message{
+		ID:   "",
+		Src:  a.id,
+		Dst:  a.id,
+		Kind: simulation.KindDelay,
+		Params: map[string]any{
+			"key": key,
+		},
+	}, time.Duration(timeMS)*time.Millisecond)
 }
 
 func (a *Adapter) TriggerPinInterrupt(pin int) error {
 	key := fmt.Sprintf("%d", pin)
 	if i, ok := a.pinInterrupts[key]; ok {
 		C.tInterrupt(unsafe.Pointer(a.selfUnsafe), i.cb)
-	}
-
-	return nil
-}
-
-func (a *Adapter) TriggerTimerInterrupt(timeoutMS int) error {
-	for _, key := range []string{fmt.Sprintf("%d", timeoutMS), fmt.Sprintf("%d_periodic", timeoutMS)} {
-		if i, ok := a.timerInterrupts[key]; ok {
-			C.tInterrupt(unsafe.Pointer(a.selfUnsafe), i.cb)
-			//TODO: reschedule if necessary
-			return nil
-		}
 	}
 
 	return nil
@@ -211,7 +232,7 @@ func New(id string, ports []Port, lib *dl.SO) (*Adapter, error) {
 		timerInterrupts: make(map[string]timerInterruptConfig),
 		pinInterrupts:   make(map[string]pinInterruptConfig),
 		ports:           make(map[string]Port),
-		params:          make(map[string]interface{}),
+		mem:             make(map[string]interface{}),
 	}
 
 	a.selfUnsafe = cgo.NewHandle(a)

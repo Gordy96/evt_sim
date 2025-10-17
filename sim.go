@@ -27,6 +27,10 @@ func (b *BaseNode) Init(env simulation.Environment) {
 	}
 }
 
+func (b *BaseNode) Close() error {
+	return nil
+}
+
 func (b *BaseNode) OnMessage(msg *simulation.Message) {
 	switch msg.Kind {
 	case simulation.KindDelay:
@@ -38,28 +42,26 @@ func (b *BaseNode) OnMessage(msg *simulation.Message) {
 		}
 		b.RemoveParam("busy")
 		b.env.SendMessage(&simulation.Message{
-			ID:        "some message",
-			Src:       b.ID(),
-			Dst:       "radio",
-			Kind:      simulation.KindMessage,
-			Timestamp: b.env.Now().Add(10 * time.Millisecond),
+			ID:   "some message",
+			Src:  b.ID(),
+			Dst:  "radio",
+			Kind: simulation.KindMessage,
 			Params: map[string]any{
 				"payload": "hello world!!!",
 			},
-		})
+		}, 10*time.Millisecond)
 	case simulation.KindMessage:
-		b.l.Info("node '%s' received message: %s", zap.Any("message", msg))
+		b.l.Info("node received message", zap.String("node", b.id), zap.Any("message", msg))
 	}
 }
 
 func (b *BaseNode) Delay(t time.Duration) {
 	b.env.SendMessage(&simulation.Message{
-		ID:        "some message",
-		Src:       b.ID(),
-		Dst:       b.ID(),
-		Kind:      simulation.KindDelay,
-		Timestamp: b.env.Now().Add(t),
-	})
+		ID:   "some message",
+		Src:  b.ID(),
+		Dst:  b.ID(),
+		Kind: simulation.KindDelay,
+	}, t)
 }
 
 func baseNode(l *zap.Logger, id string, init func(self *BaseNode, env simulation.Environment), params map[string]any) *BaseNode {

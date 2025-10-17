@@ -19,14 +19,14 @@ func (s *Simulation) Nodes() map[string]Node {
 	return s.nodes
 }
 
-func (s *Simulation) SendMessage(msg *Message) {
+func (s *Simulation) SendMessage(msg *Message, delay time.Duration) {
+	msg.Timestamp = s.now.Add(delay)
 	s.pq.Push(msg)
 }
 
 func (s *Simulation) Run() {
-	s.now = time.Now()
-
-	start := s.now
+	s.now = time.Time{}
+	start := time.Now()
 
 	s.l.Info("start")
 
@@ -41,7 +41,7 @@ func (s *Simulation) Run() {
 		node := s.nodes[msg.Dst]
 		node.OnMessage(msg)
 	}
-	s.l.Info("finished", zap.Duration("elapsed", time.Since(start)))
+	s.l.Info("finished", zap.Duration("elapsed", time.Since(start)), zap.Duration("simulation_time", s.now.Sub(time.Time{})))
 }
 
 func (s *Simulation) Now() time.Time {

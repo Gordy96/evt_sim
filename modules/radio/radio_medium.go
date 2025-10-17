@@ -33,6 +33,10 @@ func (r *RadioMedium) Init(env simulation.Environment) {
 	r.env = env
 }
 
+func (r *RadioMedium) Close() error {
+	return nil
+}
+
 func (r *RadioMedium) OnMessage(msg *simulation.Message) {
 	r.l.Info("radio medium, aka air received message", zap.Any("message", msg))
 
@@ -54,8 +58,7 @@ func (r *RadioMedium) OnMessage(msg *simulation.Message) {
 			newMsg := *msg
 			newMsg.Dst = node.ID()
 			newMsg.Src = "radio"
-			newMsg.Timestamp = newMsg.Timestamp.Add(propagationDelay)
-			r.env.SendMessage(&newMsg)
+			r.env.SendMessage(&newMsg, propagationDelay)
 		}
 	}
 }
