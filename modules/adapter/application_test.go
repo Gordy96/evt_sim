@@ -53,10 +53,10 @@ func TestCompile(t *testing.T) {
 
 	port := FakePort{}
 
-	a, err := New("runner", []Port{&port}, lib)
+	a, err := New("runner", []Port{&port}, nil, lib)
 	assert.NoError(t, err)
 
-	a.Init(nil)
+	a.Init()
 	defer a.Close()
 
 	for i := 0; i < 3; i++ {

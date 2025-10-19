@@ -45,7 +45,6 @@ import "C"
 import (
 	"fmt"
 	"runtime/cgo"
-	"time"
 	"unsafe"
 
 	"github.com/Gordy96/cgo_dl/dl"
@@ -64,7 +63,7 @@ type pinInterruptConfig struct {
 
 //export attachPinInterrupt
 func attachPinInterrupt(ctx *C.void, pin C.int, cb C.interrupt_callback_t) {
-	c := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Adapter)
+	c := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
 	cfg := pinInterruptConfig{
 		pin: int(pin),
 		cb:  cb,
@@ -80,7 +79,7 @@ type timerInterruptConfig struct {
 
 //export attachTimeInterrupt
 func attachTimeInterrupt(ctx *C.void, timeMS C.int, periodic C.short, cb C.interrupt_callback_t) {
-	c := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Adapter)
+	c := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
 	cfg := timerInterruptConfig{
 		timeMS:   int(timeMS),
 		periodic: int(periodic) > 0,
@@ -96,7 +95,7 @@ func attachTimeInterrupt(ctx *C.void, timeMS C.int, periodic C.short, cb C.inter
 
 //export goRead
 func goRead(ctx *C.void, port *C.char, buf *C.char) C.int {
-	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Adapter)
+	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
 
 	if p, ok := a.ports[C.GoString(port)]; ok {
 		temp := make([]byte, 1024)
@@ -112,7 +111,7 @@ func goRead(ctx *C.void, port *C.char, buf *C.char) C.int {
 
 //export goWrite
 func goWrite(ctx *C.void, port *C.char, buf *C.char, size C.int) C.int {
-	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Adapter)
+	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
 
 	if p, ok := a.ports[C.GoString(port)]; ok {
 		temp := make([]byte, int(size))
@@ -127,14 +126,14 @@ func goWrite(ctx *C.void, port *C.char, buf *C.char, size C.int) C.int {
 
 //export dataGetter
 func dataGetter(ctx *C.void, name *C.char) *C.void {
-	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Adapter)
+	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
 	v, _ := a.mem[C.GoString(name)].(unsafe.Pointer)
 	return (*C.void)(v)
 }
 
 //export dataSetter
 func dataSetter(ctx *C.void, name *C.char, value *C.void) {
-	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Adapter)
+	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
 	a.mem[C.GoString(name)] = unsafe.Pointer(value)
 }
 
@@ -144,9 +143,7 @@ type Port interface {
 	Read([]byte) (int, error)
 }
 
-var _ simulation.Node = (*Adapter)(nil)
-
-type Adapter struct {
+type Application struct {
 	simulation.ParameterBag
 	selfUnsafe      cgo.Handle
 	id              string
@@ -156,52 +153,33 @@ type Adapter struct {
 	timerInterrupts map[string]timerInterruptConfig
 	ports           map[string]Port
 	mem             map[string]interface{}
-	env             simulation.Environment
+	schedule        func(string, int)
 }
 
-func (a *Adapter) Close() error {
+func (a *Application) Close() error {
 	C.tShutdown(unsafe.Pointer(a.selfUnsafe), a.shutdownFunc)
 	a.selfUnsafe.Delete()
 	return nil
 }
 
-func (a *Adapter) ID() string {
+func (a *Application) ID() string {
 	return a.id
 }
 
-func (a *Adapter) Init(env simulation.Environment) {
-	a.env = env
+func (a *Application) Init() {
 	C.tInit(unsafe.Pointer(a.selfUnsafe), a.initFunc)
 }
 
-func (a *Adapter) OnMessage(msg *simulation.Message) {
-	switch msg.Kind {
-	case simulation.KindDelay:
-		key := msg.Params["key"].(string)
-		if i, ok := a.timerInterrupts[key]; ok {
-			C.tInterrupt(unsafe.Pointer(a.selfUnsafe), i.cb)
-			if i.periodic {
-				a.schedule(key, i.timeMS)
-			}
+func (a *Application) TriggerTimeInterrupt(key string) {
+	if i, ok := a.timerInterrupts[key]; ok {
+		C.tInterrupt(unsafe.Pointer(a.selfUnsafe), i.cb)
+		if i.periodic {
+			a.schedule(key, i.timeMS)
 		}
-	case simulation.KindMessage:
-
 	}
 }
 
-func (a *Adapter) schedule(key string, timeMS int) {
-	a.env.SendMessage(&simulation.Message{
-		ID:   "",
-		Src:  a.id,
-		Dst:  a.id,
-		Kind: simulation.KindDelay,
-		Params: map[string]any{
-			"key": key,
-		},
-	}, time.Duration(timeMS)*time.Millisecond)
-}
-
-func (a *Adapter) TriggerPinInterrupt(pin int) error {
+func (a *Application) TriggerPinInterrupt(pin int) error {
 	key := fmt.Sprintf("%d", pin)
 	if i, ok := a.pinInterrupts[key]; ok {
 		C.tInterrupt(unsafe.Pointer(a.selfUnsafe), i.cb)
@@ -210,7 +188,7 @@ func (a *Adapter) TriggerPinInterrupt(pin int) error {
 	return nil
 }
 
-func New(id string, ports []Port, lib *dl.SO) (*Adapter, error) {
+func New(id string, ports []Port, schedule func(string, int), lib *dl.SO) (*Application, error) {
 	sym, err := lib.Func("init")
 	if err != nil {
 		return nil, err
@@ -225,7 +203,7 @@ func New(id string, ports []Port, lib *dl.SO) (*Adapter, error) {
 
 	shutdownFunc := (C.shutdown_t)(sym)
 
-	a := &Adapter{
+	a := &Application{
 		id:              id,
 		initFunc:        initFunc,
 		shutdownFunc:    shutdownFunc,
@@ -233,6 +211,7 @@ func New(id string, ports []Port, lib *dl.SO) (*Adapter, error) {
 		pinInterrupts:   make(map[string]pinInterruptConfig),
 		ports:           make(map[string]Port),
 		mem:             make(map[string]interface{}),
+		schedule:        schedule,
 	}
 
 	a.selfUnsafe = cgo.NewHandle(a)
