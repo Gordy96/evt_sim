@@ -53,11 +53,11 @@ func (r *RadioMedium) OnMessage(msg *simulation.Message) {
 	srcFreq := getFrequency(nodes[msg.Src])
 
 	for _, node := range nodes {
-		_, busy := node.GetParam("busy")
-		if getFrequency(node) == srcFreq && msg.Src != node.ID() && !busy {
+		if getFrequency(node) == srcFreq && msg.Src != node.ID() {
 			newMsg := *msg
 			newMsg.Dst = node.ID()
 			newMsg.Src = "radio"
+			newMsg.Kind = "start_receiving"
 			r.env.SendMessage(&newMsg, propagationDelay)
 		}
 	}

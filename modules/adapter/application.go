@@ -10,7 +10,7 @@ package adapter
 // forward declaration for trampoline
 extern int   goRead(void *ctx, char* port, char* buf);
 extern int   goWrite(void *ctx, char* port, char* buf, int size);
-extern void  attachPinInterrupt(void *ctx, int pin, interrupt_callback_t cb);
+extern void  attachPortInterrupt(void *ctx, char* port, interrupt_callback_t cb);
 extern void  attachTimeInterrupt(void *ctx, int time_ms, short periodic, interrupt_callback_t cb);
 extern void* dataGetter(void *ctx, char* name);
 extern void  dataSetter(void *ctx, char* name, void* value);
@@ -21,7 +21,7 @@ static void tLibInit(lib_init_func_t lib_init) {
 	interface_t iface = {
 		.read_port             = goRead,
 		.write_port            = goWrite,
-		.attach_pin_interrupt  = attachPinInterrupt,
+		.attach_port_interrupt = attachPortInterrupt,
 		.attach_time_interrupt = attachTimeInterrupt,
 		.data_getter           = dataGetter,
 		.data_setter           = dataSetter,
@@ -56,19 +56,20 @@ func goLog(line *C.char) {
 	fmt.Printf("%s\n", C.GoString(line))
 }
 
-type pinInterruptConfig struct {
-	pin int
-	cb  C.interrupt_callback_t
+type portInterruptConfig struct {
+	port string
+	cb   C.interrupt_callback_t
 }
 
-//export attachPinInterrupt
-func attachPinInterrupt(ctx *C.void, pin C.int, cb C.interrupt_callback_t) {
+//export attachPortInterrupt
+func attachPortInterrupt(ctx *C.void, port *C.char, cb C.interrupt_callback_t) {
 	c := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
-	cfg := pinInterruptConfig{
-		pin: int(pin),
-		cb:  cb,
+	p := C.GoString(port)
+	cfg := portInterruptConfig{
+		port: p,
+		cb:   cb,
 	}
-	c.pinInterrupts[fmt.Sprintf("%d", int(pin))] = cfg
+	c.portInterrupts[p] = cfg
 }
 
 type timerInterruptConfig struct {
@@ -149,7 +150,7 @@ type Application struct {
 	id              string
 	initFunc        C.init_func_t
 	shutdownFunc    C.shutdown_t
-	pinInterrupts   map[string]pinInterruptConfig
+	portInterrupts  map[string]portInterruptConfig
 	timerInterrupts map[string]timerInterruptConfig
 	ports           map[string]Port
 	mem             map[string]interface{}
@@ -166,29 +167,37 @@ func (a *Application) ID() string {
 	return a.id
 }
 
-func (a *Application) Init() {
+func (a *Application) Init(schedule func(string, int)) error {
+	a.schedule = schedule
 	C.tInit(unsafe.Pointer(a.selfUnsafe), a.initFunc)
+
+	return nil
 }
 
-func (a *Application) TriggerTimeInterrupt(key string) {
+func (a *Application) TriggerTimeInterrupt(key string) error {
 	if i, ok := a.timerInterrupts[key]; ok {
 		C.tInterrupt(unsafe.Pointer(a.selfUnsafe), i.cb)
 		if i.periodic {
 			a.schedule(key, i.timeMS)
 		}
 	}
+
+	return nil
 }
 
-func (a *Application) TriggerPinInterrupt(pin int) error {
-	key := fmt.Sprintf("%d", pin)
-	if i, ok := a.pinInterrupts[key]; ok {
+func (a *Application) TriggerPortInterrupt(port string) error {
+	if i, ok := a.portInterrupts[port]; ok {
 		C.tInterrupt(unsafe.Pointer(a.selfUnsafe), i.cb)
 	}
 
 	return nil
 }
 
-func New(id string, ports []Port, schedule func(string, int), lib *dl.SO) (*Application, error) {
+func (a *Application) AddPort(port Port) {
+	a.ports[port.Name()] = port
+}
+
+func New(id string, lib *dl.SO) (*Application, error) {
 	sym, err := lib.Func("init")
 	if err != nil {
 		return nil, err
@@ -208,17 +217,12 @@ func New(id string, ports []Port, schedule func(string, int), lib *dl.SO) (*Appl
 		initFunc:        initFunc,
 		shutdownFunc:    shutdownFunc,
 		timerInterrupts: make(map[string]timerInterruptConfig),
-		pinInterrupts:   make(map[string]pinInterruptConfig),
+		portInterrupts:  make(map[string]portInterruptConfig),
 		ports:           make(map[string]Port),
 		mem:             make(map[string]interface{}),
-		schedule:        schedule,
 	}
 
 	a.selfUnsafe = cgo.NewHandle(a)
-
-	for _, port := range ports {
-		a.ports[port.Name()] = port
-	}
 
 	return a, nil
 }

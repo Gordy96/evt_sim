@@ -31,7 +31,7 @@ void init(void *ctx) {
     App *app = malloc(sizeof(App));
     app->counter = 0;
     ENV.data_setter(ctx, "this", app);
-    ENV.attach_pin_interrupt(ctx, 2, cb);
+    ENV.attach_port_interrupt(ctx, "port", cb);
 }
 
 void shutdown(void *ctx) {

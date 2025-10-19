@@ -53,14 +53,16 @@ func TestCompile(t *testing.T) {
 
 	port := FakePort{}
 
-	a, err := New("runner", []Port{&port}, nil, lib)
+	a, err := New("runner", lib)
 	assert.NoError(t, err)
 
-	a.Init()
+	a.AddPort(&port)
+
+	assert.NoError(t, a.Init(nil))
 	defer a.Close()
 
 	for i := 0; i < 3; i++ {
-		err = a.TriggerPinInterrupt(2)
+		err = a.TriggerPortInterrupt("port")
 		assert.NoError(t, err)
 	}
 

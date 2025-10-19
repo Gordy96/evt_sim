@@ -4,7 +4,7 @@
 typedef int   (*read_cb_t)(void *ctx, char* port, char* buf);
 typedef int   (*write_cb_t)(void *ctx, char* port, char* buf, int size);
 typedef void  (*interrupt_callback_t)(void *ctx);
-typedef void  (*attach_pin_interrupt_t)(void *ctx, int pin, interrupt_callback_t cb);
+typedef void  (*attach_port_interrupt_t)(void *ctx, char* port, interrupt_callback_t cb);
 typedef void  (*attach_time_interrupt_t)(void *ctx, int time_ms, short periodic, interrupt_callback_t cb);
 typedef void  (*shutdown_t)(void *ctx);
 typedef void* (*getter_t)(void *ctx, char* name);
@@ -14,7 +14,7 @@ typedef void  (*log_t)(char *line);
 typedef struct {
     read_cb_t               read_port;
     write_cb_t              write_port;
-    attach_pin_interrupt_t  attach_pin_interrupt;
+    attach_port_interrupt_t attach_port_interrupt;
     attach_time_interrupt_t attach_time_interrupt;
     getter_t                data_getter;
     setter_t                data_setter;
