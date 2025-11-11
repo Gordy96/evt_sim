@@ -6,11 +6,30 @@ import (
 	"github.com/Gordy96/evt-sim/simulation"
 )
 
+func New(id string, parentID string, frequency float64, power uint64) *LoraNic {
+	return &LoraNic{
+		id:        id,
+		parentID:  parentID,
+		frequency: frequency,
+		power:     power,
+	}
+}
+
 type LoraNic struct {
 	simulation.ParameterBag
-	id       string
-	env      simulation.Environment
-	parentID string
+	id        string
+	env       simulation.Environment
+	parentID  string
+	frequency float64
+	power     uint64
+}
+
+func (l *LoraNic) Frequency() float64 {
+	return l.frequency
+}
+
+func (l *LoraNic) Power() uint64 {
+	return l.power
 }
 
 func (l *LoraNic) ID() string {

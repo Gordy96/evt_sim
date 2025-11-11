@@ -48,6 +48,7 @@ import (
 	"unsafe"
 
 	"github.com/Gordy96/cgo_dl/dl"
+	"github.com/Gordy96/evt-sim/modules/device"
 	"github.com/Gordy96/evt-sim/simulation"
 )
 
@@ -138,12 +139,6 @@ func dataSetter(ctx *C.void, name *C.char, value *C.void) {
 	a.mem[C.GoString(name)] = unsafe.Pointer(value)
 }
 
-type Port interface {
-	Name() string
-	Write([]byte) (int, error)
-	Read([]byte) (int, error)
-}
-
 type Application struct {
 	simulation.ParameterBag
 	selfUnsafe      cgo.Handle
@@ -152,7 +147,7 @@ type Application struct {
 	shutdownFunc    C.shutdown_t
 	portInterrupts  map[string]portInterruptConfig
 	timerInterrupts map[string]timerInterruptConfig
-	ports           map[string]Port
+	ports           map[string]device.Port
 	mem             map[string]interface{}
 	schedule        func(string, int)
 }
@@ -167,7 +162,10 @@ func (a *Application) ID() string {
 	return a.id
 }
 
-func (a *Application) Init(schedule func(string, int)) error {
+func (a *Application) Init(schedule func(string, int), ports ...device.Port) error {
+	for _, port := range ports {
+		a.ports[port.Name()] = port
+	}
 	a.schedule = schedule
 	C.tInit(unsafe.Pointer(a.selfUnsafe), a.initFunc)
 
@@ -193,10 +191,6 @@ func (a *Application) TriggerPortInterrupt(port string) error {
 	return nil
 }
 
-func (a *Application) AddPort(port Port) {
-	a.ports[port.Name()] = port
-}
-
 func New(id string, lib *dl.SO) (*Application, error) {
 	sym, err := lib.Func("init")
 	if err != nil {
@@ -218,7 +212,7 @@ func New(id string, lib *dl.SO) (*Application, error) {
 		shutdownFunc:    shutdownFunc,
 		timerInterrupts: make(map[string]timerInterruptConfig),
 		portInterrupts:  make(map[string]portInterruptConfig),
-		ports:           make(map[string]Port),
+		ports:           make(map[string]device.Port),
 		mem:             make(map[string]interface{}),
 	}
 

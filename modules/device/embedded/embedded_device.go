@@ -13,8 +13,7 @@ var _ simulation.Node = (*EmbeddedDevice)(nil)
 
 type bufferNodeWrapper struct {
 	node simulation.Node
-	src  simulation.Node
-	env  simulation.Environment
+	src  *EmbeddedDevice
 	buf  []byte
 }
 
@@ -28,7 +27,7 @@ func (b bufferNodeWrapper) Read(buf []byte) (n int, err error) {
 }
 
 func (b bufferNodeWrapper) Write(buf []byte) (n int, err error) {
-	b.env.SendMessage(&simulation.Message{
+	b.src.env.SendMessage(&simulation.Message{
 		ID:   "",
 		Src:  b.src.ID(),
 		Dst:  b.node.ID(),
@@ -92,15 +91,16 @@ func (e *EmbeddedDevice) schedule(key string, timeMS int) {
 func (e *EmbeddedDevice) Init(env simulation.Environment) {
 	e.env = env
 
-	for _, r := range e.radios {
-		e.ports[r.ID()] = bufferNodeWrapper{
-			node: r,
-			src:  e,
-			env:  env,
-		}
+	for _, node := range e.radios {
+		node.Init(env)
 	}
 
-	e.app.Init(e.schedule)
+	var ports = make([]device.Port, 0, len(e.ports))
+	for _, v := range e.ports {
+		ports = append(ports, v)
+	}
+
+	e.app.Init(e.schedule, ports...)
 }
 
 func (e *EmbeddedDevice) Close() error {
@@ -120,6 +120,13 @@ func NewEmbeddedDevice(id string, app device.Application, radios []simulation.No
 		app:    app,
 		ports:  make(map[string]bufferNodeWrapper),
 		radios: radios,
+	}
+
+	for _, r := range d.radios {
+		d.ports[r.ID()] = bufferNodeWrapper{
+			node: r,
+			src:  d,
+		}
 	}
 
 	return d

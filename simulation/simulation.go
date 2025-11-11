@@ -1,6 +1,8 @@
 package simulation
 
 import (
+	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/Gordy96/evt-sim/internal/pq"
@@ -13,6 +15,7 @@ type Simulation struct {
 	nodes   map[string]Node
 	now     time.Time
 	elapsed time.Duration
+	indexer atomic.Uint64
 }
 
 func (s *Simulation) Nodes() map[string]Node {
@@ -20,6 +23,7 @@ func (s *Simulation) Nodes() map[string]Node {
 }
 
 func (s *Simulation) SendMessage(msg *Message, delay time.Duration) {
+	msg.ID = strconv.FormatUint(s.indexer.Add(1), 10)
 	msg.Timestamp = s.now.Add(delay)
 	s.pq.Push(msg)
 }

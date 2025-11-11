@@ -1,6 +1,7 @@
 package radio
 
 import (
+	"math"
 	"time"
 
 	"github.com/Gordy96/evt-sim/simulation"
@@ -21,8 +22,9 @@ var _ simulation.Node = (*RadioMedium)(nil)
 
 type RadioMedium struct {
 	simulation.ParameterBag
-	l   *zap.Logger
-	env simulation.Environment
+	l      *zap.Logger
+	env    simulation.Environment
+	radios []radioNode
 }
 
 func (r *RadioMedium) ID() string {
@@ -41,8 +43,6 @@ func (r *RadioMedium) OnMessage(msg *simulation.Message) {
 	r.l.Debug("radio medium, aka air received message", zap.Any("message", msg))
 
 	//here you can handle geo positioning, frequency node state etc
-	nodes := r.env.Nodes()
-
 	iprop, ok := r.GetParam("propagationDelay")
 	if !ok {
 		panic("radio must have propagationDelay")
@@ -50,10 +50,18 @@ func (r *RadioMedium) OnMessage(msg *simulation.Message) {
 
 	propagationDelay := iprop.(time.Duration)
 
-	srcFreq := getFrequency(nodes[msg.Src])
+	srcFreq := r.env.Nodes()[msg.Src].(radioNode).Frequency()
 
-	for _, node := range nodes {
-		if getFrequency(node) == srcFreq && msg.Src != node.ID() {
+	if len(r.radios) == 0 {
+		nodes := make([]simulation.Node, 0, len(r.env.Nodes()))
+		for _, n := range r.env.Nodes() {
+			nodes = append(nodes, n)
+		}
+		r.cacheRadioNodes(nodes)
+	}
+
+	for _, node := range r.radios {
+		if matchingFrequencies(srcFreq, node.Frequency(), 0.1) && msg.Src != node.ID() {
 			newMsg := *msg
 			newMsg.Dst = node.ID()
 			newMsg.Src = "radio"
@@ -63,10 +71,22 @@ func (r *RadioMedium) OnMessage(msg *simulation.Message) {
 	}
 }
 
-func getFrequency(n simulation.Node) float64 {
-	ifreq, ok := n.GetParam("radioFrequency")
-	if !ok {
-		return -1
+func (r *RadioMedium) cacheRadioNodes(nodes []simulation.Node) {
+	for _, node := range nodes {
+		if c, ok := node.(simulation.CompositeNode); ok {
+			r.cacheRadioNodes(c.Children())
+		} else if f, ok := node.(radioNode); ok {
+			r.radios = append(r.radios, f)
+		}
 	}
-	return ifreq.(float64)
+}
+
+type radioNode interface {
+	simulation.Node
+	Frequency() float64
+	Power() uint64
+}
+
+func matchingFrequencies(a, b float64, threshold float64) bool {
+	return math.Abs(a-b) < threshold
 }

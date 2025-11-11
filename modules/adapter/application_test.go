@@ -56,9 +56,7 @@ func TestCompile(t *testing.T) {
 	a, err := New("runner", lib)
 	assert.NoError(t, err)
 
-	a.AddPort(&port)
-
-	assert.NoError(t, a.Init(nil))
+	assert.NoError(t, a.Init(nil, &port))
 	defer a.Close()
 
 	for i := 0; i < 3; i++ {
