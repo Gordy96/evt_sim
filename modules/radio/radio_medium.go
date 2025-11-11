@@ -38,7 +38,7 @@ func (r *RadioMedium) Close() error {
 }
 
 func (r *RadioMedium) OnMessage(msg *simulation.Message) {
-	r.l.Info("radio medium, aka air received message", zap.Any("message", msg))
+	r.l.Debug("radio medium, aka air received message", zap.Any("message", msg))
 
 	//here you can handle geo positioning, frequency node state etc
 	nodes := r.env.Nodes()

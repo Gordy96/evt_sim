@@ -34,10 +34,10 @@ func (b *BaseNode) Close() error {
 func (b *BaseNode) OnMessage(msg *simulation.Message) {
 	switch msg.Kind {
 	case simulation.KindDelay:
-		b.l.Info("finished sleep, sending message over radio")
+		b.l.Debug("finished sleep, sending message over radio")
 		_, ok := b.GetParam("onWakeDoNothing")
 		if ok {
-			b.l.Info("node won't do anything on wake")
+			b.l.Debug("node won't do anything on wake")
 			return
 		}
 		b.RemoveParam("busy")
@@ -51,7 +51,7 @@ func (b *BaseNode) OnMessage(msg *simulation.Message) {
 			},
 		}, 10*time.Millisecond)
 	case simulation.KindMessage:
-		b.l.Info("node received message", zap.String("node", b.id), zap.Any("message", msg))
+		b.l.Debug("node received message", zap.String("node", b.id), zap.Any("message", msg))
 	}
 }
 
