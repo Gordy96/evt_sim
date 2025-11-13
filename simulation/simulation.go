@@ -1,6 +1,7 @@
 package simulation
 
 import (
+	"fmt"
 	"strconv"
 	"sync/atomic"
 	"time"
@@ -13,6 +14,7 @@ type Simulation struct {
 	l       *zap.Logger
 	pq      *pq.PriorityQueue[*Message]
 	nodes   map[string]Node
+	init    []Node
 	now     time.Time
 	elapsed time.Duration
 	indexer atomic.Uint64
@@ -34,34 +36,66 @@ func (s *Simulation) Run() {
 
 	s.l.Info("start")
 
-	for _, node := range s.nodes {
+	for _, node := range s.init {
 		node.Init(s)
 	}
 
 	for s.pq.Len() > 0 {
 		msg := s.pq.Pop()
+		s.l.Debug("Message", zap.Any("msg", msg))
 		s.elapsed += msg.Timestamp.Sub(s.now)
 		s.now = msg.Timestamp
-		node := s.nodes[msg.Dst]
+		node := s.FindNode(msg.Dst)
 		node.OnMessage(msg)
 	}
 	s.l.Info("finished", zap.Duration("elapsed", time.Since(start)), zap.Duration("simulation_time", s.now.Sub(time.Time{})))
+}
+
+func (s *Simulation) FindNode(id string) Node {
+	if node, ok := s.nodes[id]; ok {
+		return node
+	}
+
+	return nil
 }
 
 func (s *Simulation) Now() time.Time {
 	return s.now
 }
 
-func NewSimulation(l *zap.Logger, nodes []Node) *Simulation {
-	n := make(map[string]Node)
-
-	for _, node := range nodes {
-		n[node.ID()] = node
+func (s *Simulation) addNode(n Node) error {
+	if _, ok := s.nodes[n.ID()]; ok {
+		return fmt.Errorf("node with ID %s already exists", n.ID())
 	}
 
-	return &Simulation{
+	s.nodes[n.ID()] = n
+
+	if composite, ok := n.(CompositeNode); ok {
+		for _, sub := range composite.Children() {
+			if err := s.addNode(sub); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func NewSimulation(l *zap.Logger, nodes []Node) (*Simulation, error) {
+	s := &Simulation{
 		l:     l.Named("simulation"),
 		pq:    pq.New[*Message](),
-		nodes: n,
+		nodes: make(map[string]Node),
+		init:  make([]Node, 0),
 	}
+
+	for _, node := range nodes {
+		if err := s.addNode(node); err != nil {
+			return nil, err
+		}
+
+		s.init = append(s.init, node)
+	}
+
+	return s, nil
 }

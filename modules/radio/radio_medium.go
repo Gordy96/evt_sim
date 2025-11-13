@@ -50,10 +50,10 @@ func (r *RadioMedium) OnMessage(msg *simulation.Message) {
 
 	propagationDelay := iprop.(time.Duration)
 
-	srcFreq := r.env.Nodes()[msg.Src].(radioNode).Frequency()
+	srcFreq := r.env.FindNode(msg.Src).(radioNode).Frequency()
 
 	if len(r.radios) == 0 {
-		nodes := make([]simulation.Node, 0, len(r.env.Nodes()))
+		nodes := make([]simulation.Node, 0)
 		for _, n := range r.env.Nodes() {
 			nodes = append(nodes, n)
 		}
@@ -73,9 +73,7 @@ func (r *RadioMedium) OnMessage(msg *simulation.Message) {
 
 func (r *RadioMedium) cacheRadioNodes(nodes []simulation.Node) {
 	for _, node := range nodes {
-		if c, ok := node.(simulation.CompositeNode); ok {
-			r.cacheRadioNodes(c.Children())
-		} else if f, ok := node.(radioNode); ok {
+		if f, ok := node.(radioNode); ok {
 			r.radios = append(r.radios, f)
 		}
 	}

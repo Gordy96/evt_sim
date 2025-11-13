@@ -2,7 +2,6 @@ package embedded
 
 import (
 	"io"
-	"slices"
 	"time"
 
 	"github.com/Gordy96/evt-sim/modules/device"
@@ -27,13 +26,15 @@ func (b bufferNodeWrapper) Read(buf []byte) (n int, err error) {
 }
 
 func (b bufferNodeWrapper) Write(buf []byte) (n int, err error) {
+	var c = make([]byte, len(buf))
+	copy(c, buf)
 	b.src.env.SendMessage(&simulation.Message{
 		ID:   "",
 		Src:  b.src.ID(),
 		Dst:  b.node.ID(),
 		Kind: "start_sending",
 		Params: map[string]any{
-			"payload": buf,
+			"payload": c,
 		},
 	}, 0)
 
@@ -45,7 +46,7 @@ type EmbeddedDevice struct {
 	id     string
 	env    simulation.Environment
 	app    device.Application
-	ports  map[string]bufferNodeWrapper
+	ports  map[string]*bufferNodeWrapper
 	radios []simulation.Node
 }
 
@@ -63,13 +64,7 @@ func (e *EmbeddedDevice) OnMessage(msg *simulation.Message) {
 			ipl, ok := msg.Params["payload"]
 			if ok {
 				payload := ipl.([]byte)
-				if len(payload) > cap(port.buf) {
-					//since port wrapper is value - update buffer pointer in map
-					port.buf = slices.Grow(port.buf, len(payload)-cap(port.buf))
-					e.ports[msg.Src] = port
-				}
-
-				copy(port.buf, payload)
+				port.buf = append(port.buf[:], payload...)
 				e.app.TriggerPortInterrupt(msg.Src)
 			}
 		}
@@ -114,16 +109,25 @@ func (e *EmbeddedDevice) Children() []simulation.Node {
 	return e.radios
 }
 
-func NewEmbeddedDevice(id string, app device.Application, radios []simulation.Node) *EmbeddedDevice {
+func (e *EmbeddedDevice) GetChild(id string) simulation.Node {
+	for _, node := range e.radios {
+		if node.ID() == id {
+			return node
+		}
+	}
+	return nil
+}
+
+func New(id string, app device.Application, radios ...simulation.Node) *EmbeddedDevice {
 	d := &EmbeddedDevice{
 		id:     id,
 		app:    app,
-		ports:  make(map[string]bufferNodeWrapper),
+		ports:  make(map[string]*bufferNodeWrapper),
 		radios: radios,
 	}
 
 	for _, r := range d.radios {
-		d.ports[r.ID()] = bufferNodeWrapper{
+		d.ports[r.ID()] = &bufferNodeWrapper{
 			node: r,
 			src:  d,
 		}

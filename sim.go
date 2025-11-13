@@ -3,123 +3,86 @@ package main
 import (
 	"time"
 
+	"github.com/Gordy96/evt-sim/modules/device"
+	"github.com/Gordy96/evt-sim/modules/device/embedded"
+	"github.com/Gordy96/evt-sim/modules/device/lora"
 	"github.com/Gordy96/evt-sim/modules/radio"
 	"github.com/Gordy96/evt-sim/simulation"
 	"go.uber.org/zap"
 )
 
-type BaseNode struct {
-	simulation.ParameterBag
-	l    *zap.Logger
-	id   string
-	env  simulation.Environment
-	init func(*BaseNode, simulation.Environment)
+var _ device.Application = (*FakeApp)(nil)
+
+type FakeApp struct {
+	ports       map[string]device.Port
+	scheduler   func(key string, timeMS int)
+	initializer bool
+	l           *zap.Logger
+	port        string
 }
 
-func (b *BaseNode) ID() string {
-	return b.id
-}
+func (f *FakeApp) Init(scheduler func(key string, timeMS int), ports ...device.Port) error {
+	f.scheduler = scheduler
 
-func (b *BaseNode) Init(env simulation.Environment) {
-	b.env = env
-	if b.init != nil {
-		b.init(b, env)
+	if f.ports == nil {
+		f.ports = make(map[string]device.Port)
 	}
-}
 
-func (b *BaseNode) Close() error {
+	for _, port := range ports {
+		f.ports[port.Name()] = port
+	}
+
+	if f.initializer {
+		f.ports[f.port].Write([]byte("ping"))
+	}
+
 	return nil
 }
 
-func (b *BaseNode) OnMessage(msg *simulation.Message) {
-	switch msg.Kind {
-	case simulation.KindDelay:
-		b.l.Debug("finished sleep, sending message over radio")
-		_, ok := b.GetParam("onWakeDoNothing")
-		if ok {
-			b.l.Debug("node won't do anything on wake")
-			return
-		}
-		b.RemoveParam("busy")
-		b.env.SendMessage(&simulation.Message{
-			ID:   "some message",
-			Src:  b.ID(),
-			Dst:  "radio",
-			Kind: simulation.KindMessage,
-			Params: map[string]any{
-				"payload": "hello world!!!",
-			},
-		}, 10*time.Millisecond)
-	case simulation.KindMessage:
-		b.l.Debug("node received message", zap.String("node", b.id), zap.Any("message", msg))
+func (f *FakeApp) TriggerPortInterrupt(port string) error {
+	var buf [128]byte
+	n, err := f.ports[port].Read(buf[:])
+	if err != nil {
+		return err
 	}
+
+	f.l.Info("Received", zap.String("port", port), zap.ByteString("data", buf[:n]))
+
+	if !f.initializer {
+		f.scheduler("scheduled_answer", 10)
+	}
+
+	return nil
 }
 
-func (b *BaseNode) Delay(t time.Duration) {
-	b.env.SendMessage(&simulation.Message{
-		ID:   "some message",
-		Src:  b.ID(),
-		Dst:  b.ID(),
-		Kind: simulation.KindDelay,
-	}, t)
-}
-
-func baseNode(l *zap.Logger, id string, init func(self *BaseNode, env simulation.Environment), params map[string]any) *BaseNode {
-	b := &BaseNode{
-		id:   id,
-		l:    l.Named("base:" + id),
-		init: init,
+func (f *FakeApp) TriggerTimeInterrupt(key string) error {
+	if key == "scheduled_answer" {
+		f.ports[f.port].Write([]byte("answer"))
 	}
 
-	for k, v := range params {
-		b.SetParam(k, v)
-	}
-
-	return b
+	return nil
 }
 
 func main() {
 	logger, _ := zap.NewDevelopment()
-	sim := simulation.NewSimulation(logger, []simulation.Node{
-		baseNode(
-			logger,
+
+	sim, err := simulation.NewSimulation(logger, []simulation.Node{
+		embedded.New(
 			"first",
-			func(self *BaseNode, env simulation.Environment) {
-				self.Delay(1000 * time.Millisecond)
-				self.SetParam("busy", true)
+			&FakeApp{
+				initializer: true,
+				l:           logger.Named("first.app"),
+				port:        "first.radio",
 			},
-			map[string]any{
-				"radioFrequency": 433.0,
-			},
+			lora.New("first.radio", "first", 433.0, 20),
 		),
-		baseNode(
-			logger,
+		embedded.New(
 			"second",
-			nil,
-			map[string]any{
-				"radioFrequency": 433.0,
+			&FakeApp{
+				l:    logger.Named("second.app"),
+				port: "second.radio",
 			},
-		),
-		//going to miss because it's busy
-		baseNode(
-			logger,
-			"fourth",
-			func(self *BaseNode, env simulation.Environment) {
-				self.Delay(5000 * time.Millisecond)
-				self.SetParam("busy", true)
-			},
-			map[string]any{
-				"radioFrequency": 433.0,
-			},
-		),
-		//third one would never receive any messages
-		baseNode(
-			logger,
-			"third",
-			nil,
-			map[string]any{
-				"radioFrequency": 915.0,
-			},
+			lora.New("second.radio", "second", 433.0, 20),
 		),
 		//radio medium is also a node that can recieve messages
 		//think of it as 'aether' anything that has radio can talk to it,
@@ -127,6 +90,10 @@ func main() {
 		//based on node parameters (potentially simulation can have ports/interfaces, that would hold parameters/talk to 'aether')
 		radio.NewRadioMedium(logger, 100*time.Millisecond),
 	})
+
+	if err != nil {
+		logger.Fatal("Failed to create simulation", zap.Error(err))
+	}
 
 	sim.Run()
 }
