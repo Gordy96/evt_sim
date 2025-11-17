@@ -18,7 +18,6 @@ type FakeApp struct {
 	scheduler   func(key string, timeMS int)
 	initializer bool
 	l           *zap.Logger
-	port        string
 }
 
 func (f *FakeApp) Init(scheduler func(key string, timeMS int), ports ...device.Port) error {
@@ -33,7 +32,7 @@ func (f *FakeApp) Init(scheduler func(key string, timeMS int), ports ...device.P
 	}
 
 	if f.initializer {
-		f.ports[f.port].Write([]byte("ping"))
+		f.ports["radio"].Write([]byte("ping"))
 	}
 
 	return nil
@@ -57,7 +56,7 @@ func (f *FakeApp) TriggerPortInterrupt(port string) error {
 
 func (f *FakeApp) TriggerTimeInterrupt(key string) error {
 	if key == "scheduled_answer" {
-		f.ports[f.port].Write([]byte("answer"))
+		f.ports["radio"].Write([]byte("answer"))
 	}
 
 	return nil
@@ -72,21 +71,25 @@ func main() {
 			&FakeApp{
 				initializer: true,
 				l:           logger.Named("first.app"),
-				port:        "first.radio",
 			},
-			lora.New("first.radio", "first", 433.0, 20),
+			device.NamedConnection{
+				Name: "radio",
+				Dst:  lora.New("first/radio", "first", 433.0, 20, 10, 10),
+			},
 		),
 		embedded.New(
 			"second",
 			&FakeApp{
-				l:    logger.Named("second.app"),
-				port: "second.radio",
+				l: logger.Named("second.app"),
 			},
-			lora.New("second.radio", "second", 433.0, 20),
+			device.NamedConnection{
+				Name: "radio",
+				Dst:  lora.New("second/radio", "second", 433.0, 20, 10, 10),
+			},
 		),
-		//radio medium is also a node that can recieve messages
+		//radio medium is also a node that can receive messages
 		//think of it as 'aether' anything that has radio can talk to it,
-		//then it decides what simulation should recieve message (effectively duplicating messages)
+		//then it decides what simulation should receive message (effectively duplicating messages)
 		//based on node parameters (potentially simulation can have ports/interfaces, that would hold parameters/talk to 'aether')
 		radio.NewRadioMedium(logger, 100*time.Millisecond),
 	})

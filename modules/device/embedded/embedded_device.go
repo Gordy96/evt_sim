@@ -11,13 +11,14 @@ import (
 var _ simulation.Node = (*EmbeddedDevice)(nil)
 
 type bufferNodeWrapper struct {
+	name string
 	node simulation.Node
 	src  *EmbeddedDevice
 	buf  []byte
 }
 
 func (b bufferNodeWrapper) Name() string {
-	return b.node.ID()
+	return b.name
 }
 
 func (b bufferNodeWrapper) Read(buf []byte) (n int, err error) {
@@ -109,26 +110,19 @@ func (e *EmbeddedDevice) Children() []simulation.Node {
 	return e.radios
 }
 
-func (e *EmbeddedDevice) GetChild(id string) simulation.Node {
-	for _, node := range e.radios {
-		if node.ID() == id {
-			return node
-		}
-	}
-	return nil
-}
-
-func New(id string, app device.Application, radios ...simulation.Node) *EmbeddedDevice {
+func New(id string, app device.Application, radios ...device.NamedConnection) *EmbeddedDevice {
 	d := &EmbeddedDevice{
 		id:     id,
 		app:    app,
 		ports:  make(map[string]*bufferNodeWrapper),
-		radios: radios,
+		radios: make([]simulation.Node, 0, len(radios)),
 	}
 
-	for _, r := range d.radios {
-		d.ports[r.ID()] = &bufferNodeWrapper{
-			node: r,
+	for _, r := range radios {
+		d.radios = append(d.radios, r.Dst)
+		d.ports[r.Name] = &bufferNodeWrapper{
+			name: r.Name,
+			node: r.Dst,
 			src:  d,
 		}
 	}

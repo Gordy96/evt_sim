@@ -6,22 +6,26 @@ import (
 	"github.com/Gordy96/evt-sim/simulation"
 )
 
-func New(id string, parentID string, frequency float64, power uint64) *LoraNic {
+func New(id string, parentID string, frequency float64, power uint64, receiveDelay time.Duration, transmitDelay time.Duration) *LoraNic {
 	return &LoraNic{
-		id:        id,
-		parentID:  parentID,
-		frequency: frequency,
-		power:     power,
+		id:            id,
+		parentID:      parentID,
+		frequency:     frequency,
+		power:         power,
+		receiveDelay:  receiveDelay,
+		transmitDelay: transmitDelay,
 	}
 }
 
 type LoraNic struct {
 	simulation.ParameterBag
-	id        string
-	env       simulation.Environment
-	parentID  string
-	frequency float64
-	power     uint64
+	id            string
+	env           simulation.Environment
+	parentID      string
+	frequency     float64
+	power         uint64
+	receiveDelay  time.Duration
+	transmitDelay time.Duration
 }
 
 func (l *LoraNic) Frequency() float64 {
@@ -56,7 +60,7 @@ func (l *LoraNic) OnMessage(msg *simulation.Message) {
 			l.sendSelf(simulation.Message{
 				Kind:   "finish_receiving",
 				Params: msg.Params,
-			}, time.Duration(10)*time.Nanosecond)
+			}, l.receiveDelay)
 		}
 	case "finish_receiving":
 		l.RemoveParam("receiving")
@@ -75,7 +79,7 @@ func (l *LoraNic) OnMessage(msg *simulation.Message) {
 			l.sendSelf(simulation.Message{
 				Kind:   "finish_sending",
 				Params: msg.Params,
-			}, time.Duration(10)*time.Nanosecond)
+			}, l.transmitDelay)
 		}
 	case "finish_sending":
 		l.RemoveParam("sending")
