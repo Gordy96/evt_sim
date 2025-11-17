@@ -1,7 +1,7 @@
 #ifndef PLUGIN_H
 #define PLUGIN_H
 
-typedef int   (*read_cb_t)(void *ctx, char* port, char* buf);
+typedef int   (*read_cb_t)(void *ctx, char* port, char* buf, int size);
 typedef int   (*write_cb_t)(void *ctx, char* port, char* buf, int size);
 typedef void  (*interrupt_callback_t)(void *ctx);
 typedef void  (*attach_port_interrupt_t)(void *ctx, char* port, interrupt_callback_t cb);

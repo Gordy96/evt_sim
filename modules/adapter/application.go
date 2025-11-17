@@ -8,7 +8,7 @@ package adapter
 #include "./include/plugin.h"
 
 // forward declaration for trampoline
-extern int   goRead(void *ctx, char* port, char* buf);
+extern int   goRead(void *ctx, char* port, char* buf, int size);
 extern int   goWrite(void *ctx, char* port, char* buf, int size);
 extern void  attachPortInterrupt(void *ctx, char* port, interrupt_callback_t cb);
 extern void  attachTimeInterrupt(void *ctx, int time_ms, short periodic, interrupt_callback_t cb);
@@ -96,11 +96,11 @@ func attachTimeInterrupt(ctx *C.void, timeMS C.int, periodic C.short, cb C.inter
 }
 
 //export goRead
-func goRead(ctx *C.void, port *C.char, buf *C.char) C.int {
+func goRead(ctx *C.void, port *C.char, buf *C.char, size C.int) C.int {
 	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
 
 	if p, ok := a.ports[C.GoString(port)]; ok {
-		temp := make([]byte, 1024)
+		temp := make([]byte, int(size))
 		n, _ := p.Read(temp)
 
 		C.memcpy(unsafe.Pointer(buf), unsafe.Pointer(&temp[0]), C.size_t(n))

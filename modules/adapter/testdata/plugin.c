@@ -17,7 +17,7 @@ void cb(void *ctx) {
     App *app = ENV.data_getter(ctx, "this");
 
     char buf[256];
-    int n = ENV.read_port(ctx, "port", buf);
+    int n = ENV.read_port(ctx, "port", buf, 256);
     if (n > 0) {
         app->counter += 1;
         buf[n] = '\0';
