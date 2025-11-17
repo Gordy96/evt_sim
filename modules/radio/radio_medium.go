@@ -40,8 +40,6 @@ func (r *RadioMedium) Close() error {
 }
 
 func (r *RadioMedium) OnMessage(msg *simulation.Message) {
-	r.l.Debug("radio medium, aka air received message", zap.Any("message", msg))
-
 	//here you can handle geo positioning, frequency node state etc
 	iprop, ok := r.GetParam("propagationDelay")
 	if !ok {

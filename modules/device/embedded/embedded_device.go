@@ -21,9 +21,17 @@ func (b bufferNodeWrapper) Name() string {
 	return b.name
 }
 
-func (b bufferNodeWrapper) Read(buf []byte) (n int, err error) {
-	//TODO: destructive read?
-	return copy(buf, b.buf), nil
+func (b bufferNodeWrapper) Read(buf []byte) (int, error) {
+	if len(b.buf) == 0 {
+		return 0, nil
+	}
+
+	n := copy(buf, b.buf)
+
+	copy(b.buf, b.buf[n:])
+	b.buf = b.buf[:len(b.buf)-n]
+
+	return n, nil
 }
 
 func (b bufferNodeWrapper) Write(buf []byte) (n int, err error) {
@@ -44,11 +52,12 @@ func (b bufferNodeWrapper) Write(buf []byte) (n int, err error) {
 
 type EmbeddedDevice struct {
 	simulation.ParameterBag
-	id     string
-	env    simulation.Environment
-	app    device.Application
-	ports  map[string]*bufferNodeWrapper
-	radios []simulation.Node
+	id         string
+	env        simulation.Environment
+	app        device.Application
+	ports      map[string]*bufferNodeWrapper
+	radios     []simulation.Node
+	portLookup map[string]string
 }
 
 func (e *EmbeddedDevice) ID() string {
@@ -61,12 +70,13 @@ func (e *EmbeddedDevice) OnMessage(msg *simulation.Message) {
 		key := msg.Params["key"].(string)
 		e.app.TriggerTimeInterrupt(key)
 	case "received_radio_message":
-		if port, ok := e.ports[msg.Src]; ok {
+		if portName, ok := e.portLookup[msg.Src]; ok {
+			port := e.ports[portName]
 			ipl, ok := msg.Params["payload"]
 			if ok {
 				payload := ipl.([]byte)
 				port.buf = append(port.buf[:], payload...)
-				e.app.TriggerPortInterrupt(msg.Src)
+				e.app.TriggerPortInterrupt(portName)
 			}
 		}
 	}
@@ -112,14 +122,16 @@ func (e *EmbeddedDevice) Children() []simulation.Node {
 
 func New(id string, app device.Application, radios ...device.NamedConnection) *EmbeddedDevice {
 	d := &EmbeddedDevice{
-		id:     id,
-		app:    app,
-		ports:  make(map[string]*bufferNodeWrapper),
-		radios: make([]simulation.Node, 0, len(radios)),
+		id:         id,
+		app:        app,
+		ports:      make(map[string]*bufferNodeWrapper),
+		radios:     make([]simulation.Node, 0, len(radios)),
+		portLookup: make(map[string]string),
 	}
 
 	for _, r := range radios {
 		d.radios = append(d.radios, r.Dst)
+		d.portLookup[r.Dst.ID()] = r.Name
 		d.ports[r.Name] = &bufferNodeWrapper{
 			name: r.Name,
 			node: r.Dst,
