@@ -10,10 +10,9 @@ import (
 
 func NewRadioMedium(l *zap.Logger, propagationDelay time.Duration) *RadioMedium {
 	temp := &RadioMedium{
-		l: l.Named("radio_medium"),
+		l:                l.Named("radio_medium"),
+		propagationDelay: propagationDelay,
 	}
-
-	temp.SetParam("propagationDelay", propagationDelay)
 
 	return temp
 }
@@ -21,10 +20,10 @@ func NewRadioMedium(l *zap.Logger, propagationDelay time.Duration) *RadioMedium 
 var _ simulation.Node = (*RadioMedium)(nil)
 
 type RadioMedium struct {
-	simulation.ParameterBag
-	l      *zap.Logger
-	env    simulation.Environment
-	radios []radioNode
+	l                *zap.Logger
+	env              simulation.Environment
+	radios           []radioNode
+	propagationDelay time.Duration
 }
 
 func (r *RadioMedium) ID() string {
@@ -41,13 +40,6 @@ func (r *RadioMedium) Close() error {
 
 func (r *RadioMedium) OnMessage(msg *simulation.Message) {
 	//here you can handle geo positioning, frequency node state etc
-	iprop, ok := r.GetParam("propagationDelay")
-	if !ok {
-		panic("radio must have propagationDelay")
-	}
-
-	propagationDelay := iprop.(time.Duration)
-
 	srcFreq := r.env.FindNode(msg.Src).(radioNode).Frequency()
 
 	if len(r.radios) == 0 {
@@ -63,8 +55,8 @@ func (r *RadioMedium) OnMessage(msg *simulation.Message) {
 			newMsg := *msg
 			newMsg.Dst = node.ID()
 			newMsg.Src = "radio"
-			newMsg.Kind = "start_receiving"
-			r.env.SendMessage(&newMsg, propagationDelay)
+			newMsg.Kind = "ota/start"
+			r.env.SendMessage(&newMsg, r.propagationDelay)
 		}
 	}
 }

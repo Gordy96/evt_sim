@@ -6,34 +6,39 @@ import (
 	"github.com/Gordy96/evt-sim/simulation"
 )
 
-func New(id string, parentID string, frequency float64, power uint64, receiveDelay time.Duration, transmitDelay time.Duration) *LoraNic {
+func New(id string, options Options) *LoraNic {
 	return &LoraNic{
-		id:            id,
-		parentID:      parentID,
-		frequency:     frequency,
-		power:         power,
-		receiveDelay:  receiveDelay,
-		transmitDelay: transmitDelay,
+		id:      id,
+		options: options,
 	}
 }
 
+type Options struct {
+	ParentID      string
+	Frequency     float64
+	Power         uint64
+	ReceiveDelay  time.Duration
+	TransmitDelay time.Duration
+}
+
+type state struct {
+	receiving    bool
+	transmitting bool
+}
+
 type LoraNic struct {
-	simulation.ParameterBag
-	id            string
-	env           simulation.Environment
-	parentID      string
-	frequency     float64
-	power         uint64
-	receiveDelay  time.Duration
-	transmitDelay time.Duration
+	id      string
+	env     simulation.Environment
+	options Options
+	state   state
 }
 
 func (l *LoraNic) Frequency() float64 {
-	return l.frequency
+	return l.options.Frequency
 }
 
 func (l *LoraNic) Power() uint64 {
-	return l.power
+	return l.options.Power
 }
 
 func (l *LoraNic) ID() string {
@@ -52,42 +57,40 @@ func (l *LoraNic) sendSelf(msg simulation.Message, delay time.Duration) {
 
 func (l *LoraNic) OnMessage(msg *simulation.Message) {
 	switch msg.Kind {
-	case "start_receiving":
+	case "ota/start":
 		//TODO: reject when already receiving and/or calculate SNR to drop messages as noise
-		irec, ok := l.GetParam("receiving")
-		if !ok || !irec.(bool) {
-			l.SetParam("receiving", true)
+		if !l.state.receiving {
+			l.state.receiving = true
 			l.sendSelf(simulation.Message{
-				Kind:   "finish_receiving",
+				Kind:   "ota/finish",
 				Params: msg.Params,
-			}, l.receiveDelay)
+			}, l.options.ReceiveDelay)
 		}
-	case "finish_receiving":
-		l.RemoveParam("receiving")
+	case "ota/finish":
+		l.state.receiving = false
 		l.env.SendMessage(&simulation.Message{
 			ID:     "",
 			Src:    l.ID(),
-			Dst:    l.parentID,
-			Kind:   "received_radio_message",
+			Dst:    l.options.ParentID,
+			Kind:   "interrupt/port",
 			Params: msg.Params,
 		}, 0)
-	case "start_sending":
+	case "wire/payload":
 		//TODO: reject when already sending
-		isnd, ok := l.GetParam("sending")
-		if !ok || !isnd.(bool) {
-			l.SetParam("sending", true)
+		if !l.state.transmitting {
+			l.state.transmitting = true
 			l.sendSelf(simulation.Message{
-				Kind:   "finish_sending",
+				Kind:   "wire/finish",
 				Params: msg.Params,
-			}, l.transmitDelay)
+			}, l.options.TransmitDelay)
 		}
-	case "finish_sending":
-		l.RemoveParam("sending")
+	case "wire/finish":
+		l.state.transmitting = false
 		l.env.SendMessage(&simulation.Message{
 			ID:     "",
 			Src:    l.id,
 			Dst:    "radio",
-			Kind:   "radio_message",
+			Kind:   "radio/message",
 			Params: msg.Params,
 		}, 0)
 	}

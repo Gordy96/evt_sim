@@ -49,6 +49,10 @@ func (s *Simulation) Run() {
 		node.OnMessage(msg)
 	}
 	s.l.Info("finished", zap.Duration("elapsed", time.Since(start)), zap.Duration("simulation_time", s.now.Sub(time.Time{})))
+
+	for _, node := range s.init {
+		node.Close()
+	}
 }
 
 func (s *Simulation) FindNode(id string) Node {

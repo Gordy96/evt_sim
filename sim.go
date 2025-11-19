@@ -62,6 +62,10 @@ func (f *FakeApp) TriggerTimeInterrupt(key string) error {
 	return nil
 }
 
+func (f *FakeApp) Close() error {
+	return nil
+}
+
 func main() {
 	logger, _ := zap.NewDevelopment()
 
@@ -70,21 +74,21 @@ func main() {
 			"first",
 			&FakeApp{
 				initializer: true,
-				l:           logger.Named("first.app"),
+				l:           logger.Named("first/app"),
 			},
 			device.NamedConnection{
 				Name: "radio",
-				Dst:  lora.New("first/radio", "first", 433.0, 20, 10, 10),
+				Dst:  lora.New("first/radio", lora.Options{"first", 433.0, 20, 10, 10}),
 			},
 		),
 		embedded.New(
 			"second",
 			&FakeApp{
-				l: logger.Named("second.app"),
+				l: logger.Named("second/app"),
 			},
 			device.NamedConnection{
 				Name: "radio",
-				Dst:  lora.New("second/radio", "second", 433.0, 20, 10, 10),
+				Dst:  lora.New("second/radio", lora.Options{"second", 433.0, 20, 10, 10}),
 			},
 		),
 		//radio medium is also a node that can receive messages

@@ -1,11 +1,11 @@
 package embedded
 
 import (
-	"io"
 	"time"
 
 	"github.com/Gordy96/evt-sim/modules/device"
 	"github.com/Gordy96/evt-sim/simulation"
+	"go.uber.org/multierr"
 )
 
 var _ simulation.Node = (*EmbeddedDevice)(nil)
@@ -41,7 +41,7 @@ func (b bufferNodeWrapper) Write(buf []byte) (n int, err error) {
 		ID:   "",
 		Src:  b.src.ID(),
 		Dst:  b.node.ID(),
-		Kind: "start_sending",
+		Kind: "wire/payload",
 		Params: map[string]any{
 			"payload": c,
 		},
@@ -51,7 +51,6 @@ func (b bufferNodeWrapper) Write(buf []byte) (n int, err error) {
 }
 
 type EmbeddedDevice struct {
-	simulation.ParameterBag
 	id         string
 	env        simulation.Environment
 	app        device.Application
@@ -66,10 +65,10 @@ func (e *EmbeddedDevice) ID() string {
 
 func (e *EmbeddedDevice) OnMessage(msg *simulation.Message) {
 	switch msg.Kind {
-	case "delay_interrupt":
+	case "interrupt/delay":
 		key := msg.Params["key"].(string)
 		e.app.TriggerTimeInterrupt(key)
-	case "received_radio_message":
+	case "interrupt/port":
 		if portName, ok := e.portLookup[msg.Src]; ok {
 			port := e.ports[portName]
 			ipl, ok := msg.Params["payload"]
@@ -87,7 +86,7 @@ func (e *EmbeddedDevice) schedule(key string, timeMS int) {
 		ID:   "",
 		Src:  e.ID(),
 		Dst:  e.ID(),
-		Kind: "delay_interrupt",
+		Kind: "interrupt/delay",
 		Params: map[string]any{
 			"key": key,
 		},
@@ -110,10 +109,11 @@ func (e *EmbeddedDevice) Init(env simulation.Environment) {
 }
 
 func (e *EmbeddedDevice) Close() error {
-	if cc, ok := e.app.(io.Closer); ok {
-		return cc.Close()
+	var err = e.app.Close()
+	for _, node := range e.radios {
+		err = multierr.Append(err, node.Close())
 	}
-	return nil
+	return err
 }
 
 func (e *EmbeddedDevice) Children() []simulation.Node {

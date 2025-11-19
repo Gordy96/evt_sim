@@ -139,6 +139,8 @@ func dataSetter(ctx *C.void, name *C.char, value *C.void) {
 	a.mem[C.GoString(name)] = unsafe.Pointer(value)
 }
 
+var _ device.Application = (*Application)(nil)
+
 type Application struct {
 	simulation.ParameterBag
 	selfUnsafe      cgo.Handle
