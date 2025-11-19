@@ -8,47 +8,29 @@ import (
 	"go.uber.org/multierr"
 )
 
-var _ simulation.Node = (*EmbeddedDevice)(nil)
-
-type bufferNodeWrapper struct {
-	name string
-	node simulation.Node
-	src  *EmbeddedDevice
-	buf  []byte
-}
-
-func (b bufferNodeWrapper) Name() string {
-	return b.name
-}
-
-func (b bufferNodeWrapper) Read(buf []byte) (int, error) {
-	if len(b.buf) == 0 {
-		return 0, nil
+func New(id string, app device.Application, radios ...device.NamedConnection) *EmbeddedDevice {
+	d := &EmbeddedDevice{
+		id:         id,
+		app:        app,
+		ports:      make(map[string]*bufferNodeWrapper),
+		radios:     make([]simulation.Node, 0, len(radios)),
+		portLookup: make(map[string]string),
 	}
 
-	n := copy(buf, b.buf)
+	for _, r := range radios {
+		d.radios = append(d.radios, r.Dst)
+		d.portLookup[r.Dst.ID()] = r.Name
+		d.ports[r.Name] = &bufferNodeWrapper{
+			name: r.Name,
+			node: r.Dst,
+			src:  d,
+		}
+	}
 
-	copy(b.buf, b.buf[n:])
-	b.buf = b.buf[:len(b.buf)-n]
-
-	return n, nil
+	return d
 }
 
-func (b bufferNodeWrapper) Write(buf []byte) (n int, err error) {
-	var c = make([]byte, len(buf))
-	copy(c, buf)
-	b.src.env.SendMessage(&simulation.Message{
-		ID:   "",
-		Src:  b.src.ID(),
-		Dst:  b.node.ID(),
-		Kind: "wire/payload",
-		Params: map[string]any{
-			"payload": c,
-		},
-	}, 0)
-
-	return len(buf), nil
-}
+var _ simulation.Node = (*EmbeddedDevice)(nil)
 
 type EmbeddedDevice struct {
 	id         string
@@ -118,26 +100,4 @@ func (e *EmbeddedDevice) Close() error {
 
 func (e *EmbeddedDevice) Children() []simulation.Node {
 	return e.radios
-}
-
-func New(id string, app device.Application, radios ...device.NamedConnection) *EmbeddedDevice {
-	d := &EmbeddedDevice{
-		id:         id,
-		app:        app,
-		ports:      make(map[string]*bufferNodeWrapper),
-		radios:     make([]simulation.Node, 0, len(radios)),
-		portLookup: make(map[string]string),
-	}
-
-	for _, r := range radios {
-		d.radios = append(d.radios, r.Dst)
-		d.portLookup[r.Dst.ID()] = r.Name
-		d.ports[r.Name] = &bufferNodeWrapper{
-			name: r.Name,
-			node: r.Dst,
-			src:  d,
-		}
-	}
-
-	return d
 }

@@ -6,15 +6,15 @@ import (
 	"github.com/Gordy96/evt-sim/simulation"
 )
 
-func New(id string, options Options) *LoraNic {
+func New(id string, parentID string, options Options) *LoraNic {
 	return &LoraNic{
-		id:      id,
-		options: options,
+		id:       id,
+		parentID: parentID,
+		options:  options,
 	}
 }
 
 type Options struct {
-	ParentID      string
 	Frequency     float64
 	Power         uint64
 	ReceiveDelay  time.Duration
@@ -27,10 +27,11 @@ type state struct {
 }
 
 type LoraNic struct {
-	id      string
-	env     simulation.Environment
-	options Options
-	state   state
+	id       string
+	env      simulation.Environment
+	parentID string
+	options  Options
+	state    state
 }
 
 func (l *LoraNic) Frequency() float64 {
@@ -71,7 +72,7 @@ func (l *LoraNic) OnMessage(msg *simulation.Message) {
 		l.env.SendMessage(&simulation.Message{
 			ID:     "",
 			Src:    l.ID(),
-			Dst:    l.options.ParentID,
+			Dst:    l.parentID,
 			Kind:   "interrupt/port",
 			Params: msg.Params,
 		}, 0)

@@ -78,7 +78,7 @@ func main() {
 			},
 			device.NamedConnection{
 				Name: "radio",
-				Dst:  lora.New("first/radio", lora.Options{"first", 433.0, 20, 10, 10}),
+				Dst:  lora.New("first/radio", "first", lora.Options{433.0, 20, 10, 10}),
 			},
 		),
 		embedded.New(
@@ -88,7 +88,7 @@ func main() {
 			},
 			device.NamedConnection{
 				Name: "radio",
-				Dst:  lora.New("second/radio", lora.Options{"second", 433.0, 20, 10, 10}),
+				Dst:  lora.New("second/radio", "second", lora.Options{433.0, 20, 10, 10}),
 			},
 		),
 		//radio medium is also a node that can receive messages

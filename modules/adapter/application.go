@@ -49,7 +49,6 @@ import (
 
 	"github.com/Gordy96/cgo_dl/dl"
 	"github.com/Gordy96/evt-sim/modules/device"
-	"github.com/Gordy96/evt-sim/simulation"
 )
 
 //export goLog
@@ -142,7 +141,6 @@ func dataSetter(ctx *C.void, name *C.char, value *C.void) {
 var _ device.Application = (*Application)(nil)
 
 type Application struct {
-	simulation.ParameterBag
 	selfUnsafe      cgo.Handle
 	id              string
 	initFunc        C.init_func_t
