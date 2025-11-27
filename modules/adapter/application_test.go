@@ -53,7 +53,11 @@ func TestCompile(t *testing.T) {
 
 	port := FakePort{}
 
-	a, err := New("runner", lib)
+	a, err := New(lib, map[string]interface{}{
+		"counter": 10,
+		"name":    "foobar",
+		"factor":  float64(12.34),
+	})
 	assert.NoError(t, err)
 
 	assert.NoError(t, a.Init(nil, &port))
@@ -67,9 +71,9 @@ func TestCompile(t *testing.T) {
 	assert.ElementsMatch(
 		t,
 		[]string{
-			"hello world 1",
-			"hello world 2",
-			"hello world 3",
+			"foobar 12.340000 hello world 11",
+			"foobar 12.340000 hello world 12",
+			"foobar 12.340000 hello world 13",
 		},
 		port.recorded,
 	)

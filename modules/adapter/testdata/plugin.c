@@ -10,11 +10,13 @@ void init_lib(interface_t iface) {
 }
 
 typedef struct {
-    int counter;
+    int    counter;
+    double factor;
+    char   name[256];
 } App;
 
 void cb(void *ctx) {
-    App *app = ENV.data_getter(ctx, "this");
+    App *app = ENV.get_data(ctx, "this");
 
     char buf[256];
     int n = ENV.read_port(ctx, "port", buf, 256);
@@ -22,20 +24,22 @@ void cb(void *ctx) {
         app->counter += 1;
         buf[n] = '\0';
         char temp[256];
-        n = sprintf(temp, "%s %d", buf, app->counter);
+        n = sprintf(temp, "%s %f %s %d", app->name, app->factor, buf, app->counter);
         ENV.write_port(ctx, "port", temp, n); // echo back
     }
 }
 
 void init(void *ctx) {
     App *app = malloc(sizeof(App));
-    app->counter = 0;
-    ENV.data_setter(ctx, "this", app);
+    ENV.get_int_param(ctx, "counter", &app->counter);
+    ENV.get_double_param(ctx, "factor", &app->factor);
+    ENV.get_string_param(ctx, "name", app->name, 256);
+    ENV.set_data(ctx, "this", app);
     ENV.attach_port_interrupt(ctx, "port", cb);
 }
 
 void shutdown(void *ctx) {
-    ENV.log("shutting down");
-    App *app = ENV.data_getter(ctx, "this");
+    ENV.log(ctx, "shutting down");
+    App *app = ENV.get_data(ctx, "this");
     free(app);
 }

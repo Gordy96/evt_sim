@@ -14,7 +14,10 @@ extern void  attachPortInterrupt(void *ctx, char* port, interrupt_callback_t cb)
 extern void  attachTimeInterrupt(void *ctx, int time_ms, short periodic, interrupt_callback_t cb);
 extern void* dataGetter(void *ctx, char* name);
 extern void  dataSetter(void *ctx, char* name, void* value);
-extern void  goLog(char *line);
+extern int   stringParamGetter(void *ctx, char* name, char* buf, int size);
+extern int   intParamGetter(void *ctx, char* name, int* dst);
+extern int   doubleParamGetter(void *ctx, char* name, double* dst);
+extern void  goLog(void *ctx, char *line);
 
 // trampoline wrapper
 static void tLibInit(lib_init_func_t lib_init) {
@@ -23,9 +26,12 @@ static void tLibInit(lib_init_func_t lib_init) {
 		.write_port            = goWrite,
 		.attach_port_interrupt = attachPortInterrupt,
 		.attach_time_interrupt = attachTimeInterrupt,
-		.data_getter           = dataGetter,
-		.data_setter           = dataSetter,
+		.get_data              = dataGetter,
+		.set_data              = dataSetter,
 		.log                   = goLog,
+        .get_string_param      = stringParamGetter,
+        .get_int_param         = intParamGetter,
+        .get_double_param      = doubleParamGetter,
 	};
     lib_init(iface);
 }
@@ -52,7 +58,7 @@ import (
 )
 
 //export goLog
-func goLog(line *C.char) {
+func goLog(ctx *C.void, line *C.char) {
 	fmt.Printf("%s\n", C.GoString(line))
 }
 
@@ -92,6 +98,69 @@ func attachTimeInterrupt(ctx *C.void, timeMS C.int, periodic C.short, cb C.inter
 	}
 	c.timerInterrupts[key] = cfg
 	c.schedule(key, cfg.timeMS)
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+//export stringParamGetter
+func stringParamGetter(ctx *C.void, name *C.char, buf *C.char, size C.int) C.int {
+	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
+	istr, ok := a.params[C.GoString(name)]
+	if !ok {
+		return -1
+	}
+
+	str, ok := istr.(string)
+	if !ok {
+		return -1
+	}
+
+	src := []byte(str)
+	n := min(len(str), int(size))
+	C.memcpy(unsafe.Pointer(buf), unsafe.Pointer(&src[0]), C.size_t(n))
+
+	return C.int(n)
+}
+
+//export intParamGetter
+func intParamGetter(ctx *C.void, name *C.char, dst *C.int) C.int {
+	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
+	iint, ok := a.params[C.GoString(name)]
+	if !ok {
+		return -1
+	}
+
+	i, ok := iint.(int)
+	if !ok {
+		return -1
+	}
+
+	*dst = C.int(i)
+
+	return 0
+}
+
+//export doubleParamGetter
+func doubleParamGetter(ctx *C.void, name *C.char, dst *C.double) C.int {
+	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
+	idouble, ok := a.params[C.GoString(name)]
+	if !ok {
+		return -1
+	}
+
+	d, ok := idouble.(float64)
+	if !ok {
+		return -1
+	}
+
+	*dst = C.double(d)
+
+	return 0
 }
 
 //export goRead
@@ -142,13 +211,13 @@ var _ device.Application = (*Application)(nil)
 
 type Application struct {
 	selfUnsafe      cgo.Handle
-	id              string
 	initFunc        C.init_func_t
 	shutdownFunc    C.shutdown_t
 	portInterrupts  map[string]portInterruptConfig
 	timerInterrupts map[string]timerInterruptConfig
 	ports           map[string]device.Port
 	mem             map[string]interface{}
+	params          map[string]interface{}
 	schedule        func(string, int)
 }
 
@@ -156,10 +225,6 @@ func (a *Application) Close() error {
 	C.tShutdown(unsafe.Pointer(a.selfUnsafe), a.shutdownFunc)
 	a.selfUnsafe.Delete()
 	return nil
-}
-
-func (a *Application) ID() string {
-	return a.id
 }
 
 func (a *Application) Init(schedule func(string, int), ports ...device.Port) error {
@@ -191,7 +256,7 @@ func (a *Application) TriggerPortInterrupt(port string) error {
 	return nil
 }
 
-func New(id string, lib *dl.SO) (*Application, error) {
+func New(lib *dl.SO, params map[string]interface{}) (*Application, error) {
 	sym, err := lib.Func("init")
 	if err != nil {
 		return nil, err
@@ -207,13 +272,13 @@ func New(id string, lib *dl.SO) (*Application, error) {
 	shutdownFunc := (C.shutdown_t)(sym)
 
 	a := &Application{
-		id:              id,
 		initFunc:        initFunc,
 		shutdownFunc:    shutdownFunc,
 		timerInterrupts: make(map[string]timerInterruptConfig),
 		portInterrupts:  make(map[string]portInterruptConfig),
 		ports:           make(map[string]device.Port),
 		mem:             make(map[string]interface{}),
+		params:          params,
 	}
 
 	a.selfUnsafe = cgo.NewHandle(a)
