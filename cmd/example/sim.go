@@ -1,8 +1,6 @@
 package main
 
 import (
-	"time"
-
 	"github.com/Gordy96/evt-sim/modules/device"
 	"github.com/Gordy96/evt-sim/modules/device/embedded"
 	"github.com/Gordy96/evt-sim/modules/device/lora"
@@ -107,7 +105,7 @@ func main() {
 		//think of it as 'aether' anything that has radio can talk to it,
 		//then it decides what simulation should receive message (effectively duplicating messages)
 		//based on node parameters (potentially simulation can have ports/interfaces, that would hold parameters/talk to 'aether')
-		radio.NewRadioMedium(logger, 100*time.Millisecond),
+		radio.NewRadioMedium(),
 	})
 
 	if err != nil {

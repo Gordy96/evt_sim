@@ -2,16 +2,31 @@ package radio
 
 import (
 	"math"
-	"time"
 
 	"github.com/Gordy96/evt-sim/simulation"
-	"go.uber.org/zap"
 )
 
-func NewRadioMedium(l *zap.Logger, propagationDelay time.Duration) *RadioMedium {
+type mediumOptions struct {
+	backgroundNoiseLevel float64
+}
+
+type Option func(*mediumOptions)
+
+func WithBackgroundNoiseLevel(l float64) Option {
+	return func(o *mediumOptions) {
+		o.backgroundNoiseLevel = l
+	}
+}
+
+func NewRadioMedium(options ...Option) *RadioMedium {
+	var o mediumOptions
+
+	for _, opt := range options {
+		opt(&o)
+	}
+
 	temp := &RadioMedium{
-		l:                l.Named("radio_medium"),
-		propagationDelay: propagationDelay,
+		mediumOptions: o,
 	}
 
 	return temp
@@ -20,10 +35,9 @@ func NewRadioMedium(l *zap.Logger, propagationDelay time.Duration) *RadioMedium 
 var _ simulation.Node = (*RadioMedium)(nil)
 
 type RadioMedium struct {
-	l                *zap.Logger
-	env              simulation.Environment
-	radios           []radioNode
-	propagationDelay time.Duration
+	env           simulation.Environment
+	radios        []radioNode
+	mediumOptions mediumOptions
 }
 
 func (r *RadioMedium) Parent() simulation.Node {
@@ -60,7 +74,7 @@ func (r *RadioMedium) OnMessage(msg *simulation.Message) {
 			newMsg.Dst = node.ID()
 			newMsg.Src = "radio"
 			newMsg.Kind = "ota/start"
-			r.env.SendMessage(&newMsg, r.propagationDelay)
+			r.env.SendMessage(&newMsg, 0)
 		}
 	}
 }

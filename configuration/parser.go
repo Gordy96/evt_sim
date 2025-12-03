@@ -27,14 +27,30 @@ func ParseFile(path string) ([]simulation.Node, error) {
 	return root.Decode(ctx)
 }
 
+func topContext(ctx *hcl.EvalContext) *hcl.EvalContext {
+	if ctx == nil {
+		return nil
+	}
+
+	if ctx.Parent() == nil {
+		return ctx
+	}
+
+	return topContext(ctx.Parent())
+}
+
 func bubbleUp(ctx *hcl.EvalContext, name string, val cty.Value) {
 	if ctx == nil {
 		return
 	}
 
-	ctx.Variables[name] = val
+	ctx = topContext(ctx)
 
-	bubbleUp(ctx.Parent(), name, val)
+	if ctx.Variables == nil {
+		ctx.Variables = make(map[string]cty.Value)
+	}
+
+	ctx.Variables[name] = val
 }
 
 func ctxGet(ctx *hcl.EvalContext, name string) (cty.Value, bool) {
