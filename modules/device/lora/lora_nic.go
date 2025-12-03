@@ -6,19 +6,57 @@ import (
 	"github.com/Gordy96/evt-sim/simulation"
 )
 
-func New(id string, parentID string, options Options) *LoraNic {
-	return &LoraNic{
-		id:       id,
-		parentID: parentID,
-		options:  options,
+type Option func(*loraOptions)
+
+type loraOptions struct {
+	frequency     float64
+	power         uint64
+	receiveDelay  time.Duration
+	transmitDelay time.Duration
+	parent        simulation.Node
+}
+
+func WithPower(power uint64) Option {
+	return func(o *loraOptions) {
+		o.power = power
 	}
 }
 
-type Options struct {
-	Frequency     float64
-	Power         uint64
-	ReceiveDelay  time.Duration
-	TransmitDelay time.Duration
+func WithReceiveDelay(receiveDelay time.Duration) Option {
+	return func(o *loraOptions) {
+		o.receiveDelay = receiveDelay
+	}
+}
+
+func WithTransmitDelay(transmitDelay time.Duration) Option {
+	return func(o *loraOptions) {
+		o.transmitDelay = transmitDelay
+	}
+}
+
+func WithParent(parent simulation.Node) Option {
+	return func(o *loraOptions) {
+		o.parent = parent
+	}
+}
+
+func New(id string, frequency float64, options ...Option) *LoraNic {
+	var o = loraOptions{
+		frequency:     frequency,
+		power:         20,
+		receiveDelay:  10 * time.Millisecond,
+		transmitDelay: 10 * time.Millisecond,
+		parent:        nil,
+	}
+
+	for _, option := range options {
+		option(&o)
+	}
+
+	return &LoraNic{
+		id:      id,
+		options: o,
+	}
 }
 
 type state struct {
@@ -27,19 +65,26 @@ type state struct {
 }
 
 type LoraNic struct {
-	id       string
-	env      simulation.Environment
-	parentID string
-	options  Options
-	state    state
+	id      string
+	env     simulation.Environment
+	options loraOptions
+	state   state
+}
+
+func (l *LoraNic) SetParent(parent simulation.Node) {
+	l.options.parent = parent
+}
+
+func (l *LoraNic) Parent() simulation.Node {
+	return l.options.parent
 }
 
 func (l *LoraNic) Frequency() float64 {
-	return l.options.Frequency
+	return l.options.frequency
 }
 
 func (l *LoraNic) Power() uint64 {
-	return l.options.Power
+	return l.options.power
 }
 
 func (l *LoraNic) ID() string {
@@ -65,14 +110,14 @@ func (l *LoraNic) OnMessage(msg *simulation.Message) {
 			l.sendSelf(simulation.Message{
 				Kind:   "ota/finish",
 				Params: msg.Params,
-			}, l.options.ReceiveDelay)
+			}, l.options.receiveDelay)
 		}
 	case "ota/finish":
 		l.state.receiving = false
 		l.env.SendMessage(&simulation.Message{
 			ID:     "",
 			Src:    l.ID(),
-			Dst:    l.parentID,
+			Dst:    l.options.parent.ID(),
 			Kind:   "interrupt/port",
 			Params: msg.Params,
 		}, 0)
@@ -83,7 +128,7 @@ func (l *LoraNic) OnMessage(msg *simulation.Message) {
 			l.sendSelf(simulation.Message{
 				Kind:   "wire/finish",
 				Params: msg.Params,
-			}, l.options.TransmitDelay)
+			}, l.options.transmitDelay)
 		}
 	case "wire/finish":
 		l.state.transmitting = false

@@ -76,20 +76,32 @@ func main() {
 				initializer: true,
 				l:           logger.Named("first/app"),
 			},
-			device.NamedConnection{
-				Name: "radio",
-				Dst:  lora.New("first/radio", "first", lora.Options{433.0, 20, 10, 10}),
-			},
+			embedded.WithConnection(
+				"radio",
+				lora.New(
+					"first/radio",
+					433.0,
+					lora.WithPower(20),
+					lora.WithReceiveDelay(10),
+					lora.WithTransmitDelay(10),
+				),
+			),
 		),
 		embedded.New(
 			"second",
 			&FakeApp{
 				l: logger.Named("second/app"),
 			},
-			device.NamedConnection{
-				Name: "radio",
-				Dst:  lora.New("second/radio", "second", lora.Options{433.0, 20, 10, 10}),
-			},
+			embedded.WithConnection(
+				"radio",
+				lora.New(
+					"second/radio",
+					433.0,
+					lora.WithPower(20),
+					lora.WithReceiveDelay(10),
+					lora.WithTransmitDelay(10),
+				),
+			),
 		),
 		//radio medium is also a node that can receive messages
 		//think of it as 'aether' anything that has radio can talk to it,

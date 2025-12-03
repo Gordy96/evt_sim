@@ -26,6 +26,10 @@ type RadioMedium struct {
 	propagationDelay time.Duration
 }
 
+func (r *RadioMedium) Parent() simulation.Node {
+	return nil
+}
+
 func (r *RadioMedium) ID() string {
 	return "radio"
 }

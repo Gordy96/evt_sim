@@ -5,4 +5,5 @@ type Node interface {
 	OnMessage(msg *Message)
 	Init(env Environment)
 	Close() error
+	Parent() Node
 }
