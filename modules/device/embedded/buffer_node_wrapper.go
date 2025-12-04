@@ -1,6 +1,9 @@
 package embedded
 
-import "github.com/Gordy96/evt-sim/simulation"
+import (
+	"github.com/Gordy96/evt-sim/simulation"
+	"github.com/Gordy96/evt-sim/simulation/message"
+)
 
 type bufferNodeWrapper struct {
 	name string
@@ -29,15 +32,16 @@ func (b bufferNodeWrapper) Read(buf []byte) (int, error) {
 func (b bufferNodeWrapper) Write(buf []byte) (n int, err error) {
 	var c = make([]byte, len(buf))
 	copy(c, buf)
-	b.src.env.SendMessage(&simulation.Message{
-		ID:   "",
-		Src:  b.src.ID(),
-		Dst:  b.node.ID(),
-		Kind: "wire/payload",
-		Params: map[string]any{
-			"payload": c,
-		},
-	}, 0)
+
+	parameters := message.Parameters{}
+	builder := message.Builder{}
+
+	b.src.env.SendMessage(builder.
+		WithSrc(b.src.ID()).
+		WithDst(b.node.ID()).
+		WithKind("wire/payload").
+		WithParams(parameters.WithBytes("payload", c)).
+		Build(), 0)
 
 	return len(buf), nil
 }

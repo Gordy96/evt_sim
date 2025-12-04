@@ -1,9 +1,8 @@
 package radio
 
 import (
-	"math"
-
 	"github.com/Gordy96/evt-sim/simulation"
+	"github.com/Gordy96/evt-sim/simulation/message"
 )
 
 type mediumOptions struct {
@@ -56,9 +55,9 @@ func (r *RadioMedium) Close() error {
 	return nil
 }
 
-func (r *RadioMedium) OnMessage(msg *simulation.Message) {
+func (r *RadioMedium) OnMessage(msg message.Message) {
 	//here you can handle geo positioning, frequency node state etc
-	srcFreq := r.env.FindNode(msg.Src).(radioNode).Frequency()
+	src := r.env.FindNode(msg.Src).(radioNode)
 
 	if len(r.radios) == 0 {
 		nodes := make([]simulation.Node, 0)
@@ -69,12 +68,12 @@ func (r *RadioMedium) OnMessage(msg *simulation.Message) {
 	}
 
 	for _, node := range r.radios {
-		if matchingFrequencies(srcFreq, node.Frequency(), 0.1) && msg.Src != node.ID() {
-			newMsg := *msg
-			newMsg.Dst = node.ID()
-			newMsg.Src = "radio"
-			newMsg.Kind = "ota/start"
-			r.env.SendMessage(&newMsg, 0)
+		if node.Reachable(msg, src) {
+			mb := msg.Builder().
+				WithDst(node.ID()).
+				WithSrc("radio").
+				WithKind("ota/start")
+			r.env.SendMessage(mb.Build(), 0)
 		}
 	}
 }
@@ -90,9 +89,6 @@ func (r *RadioMedium) cacheRadioNodes(nodes []simulation.Node) {
 type radioNode interface {
 	simulation.Node
 	Frequency() float64
-	Power() uint64
-}
-
-func matchingFrequencies(a, b float64, threshold float64) bool {
-	return math.Abs(a-b) < threshold
+	Power() float64
+	Reachable(msg message.Message, other simulation.Node) bool
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/Gordy96/evt-sim/modules/device"
 	"github.com/Gordy96/evt-sim/simulation"
+	"github.com/Gordy96/evt-sim/simulation/message"
 	"go.uber.org/multierr"
 )
 
@@ -80,17 +81,16 @@ func (e *EmbeddedDevice) ID() string {
 	return e.id
 }
 
-func (e *EmbeddedDevice) OnMessage(msg *simulation.Message) {
+func (e *EmbeddedDevice) OnMessage(msg message.Message) {
 	switch msg.Kind {
 	case "interrupt/delay":
-		key := msg.Params["key"].(string)
+		key, _ := msg.Params.GetString("key")
 		e.app.TriggerTimeInterrupt(key)
 	case "interrupt/port":
 		if portName, ok := e.portLookup[msg.Src]; ok {
 			port := e.ports[portName]
-			ipl, ok := msg.Params["payload"]
-			if ok {
-				payload := ipl.([]byte)
+
+			if payload, ok := msg.Params.GetBytes("payload"); ok {
 				port.buf = append(port.buf[:], payload...)
 				e.app.TriggerPortInterrupt(portName)
 			}
@@ -99,15 +99,18 @@ func (e *EmbeddedDevice) OnMessage(msg *simulation.Message) {
 }
 
 func (e *EmbeddedDevice) schedule(key string, timeMS int) {
-	e.env.SendMessage(&simulation.Message{
-		ID:   "",
-		Src:  e.ID(),
-		Dst:  e.ID(),
-		Kind: "interrupt/delay",
-		Params: map[string]any{
-			"key": key,
-		},
-	}, time.Duration(timeMS)*time.Millisecond)
+	var builder message.Builder
+	var params message.Parameters
+	e.env.SendMessage(builder.
+		WithSrc(e.ID()).
+		WithDst(e.ID()).
+		WithKind("interrupt/delay").
+		WithParams(params.
+			WithString("key", key),
+		).
+		Build(),
+		time.Duration(timeMS)*time.Millisecond,
+	)
 }
 
 func (e *EmbeddedDevice) Init(env simulation.Environment) {

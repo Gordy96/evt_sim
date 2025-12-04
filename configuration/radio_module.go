@@ -41,7 +41,7 @@ func (r *radioModule) Decode(ctx *hcl.EvalContext, parent simulation.Node) (simu
 
 type LoRaNIC struct {
 	Frequency     float64       `hcl:"frequency"`
-	Power         uint64        `hcl:"power"`
+	Power         float64       `hcl:"power"`
 	ReceiveDelay  time.Duration `hcl:"receive_delay,optional"`
 	TransmitDelay time.Duration `hcl:"transmit_delay,optional"`
 }

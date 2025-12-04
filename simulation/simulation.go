@@ -7,12 +7,13 @@ import (
 	"time"
 
 	"github.com/Gordy96/evt-sim/internal/pq"
+	"github.com/Gordy96/evt-sim/simulation/message"
 	"go.uber.org/zap"
 )
 
 type Simulation struct {
 	l       *zap.Logger
-	pq      *pq.PriorityQueue[*Message]
+	pq      *pq.PriorityQueue[*message.Message]
 	nodes   map[string]Node
 	init    []Node
 	now     time.Time
@@ -24,10 +25,10 @@ func (s *Simulation) Nodes() map[string]Node {
 	return s.nodes
 }
 
-func (s *Simulation) SendMessage(msg *Message, delay time.Duration) {
+func (s *Simulation) SendMessage(msg message.Message, delay time.Duration) {
 	msg.ID = strconv.FormatUint(s.indexer.Add(1), 10)
 	msg.Timestamp = s.now.Add(delay)
-	s.pq.Push(msg)
+	s.pq.Push(&msg)
 }
 
 func (s *Simulation) Run() {
@@ -46,7 +47,7 @@ func (s *Simulation) Run() {
 		s.elapsed += msg.Timestamp.Sub(s.now)
 		s.now = msg.Timestamp
 		node := s.FindNode(msg.Dst)
-		node.OnMessage(msg)
+		node.OnMessage(*msg)
 	}
 	s.l.Info("finished", zap.Duration("elapsed", time.Since(start)), zap.Duration("simulation_time", s.now.Sub(time.Time{})))
 
@@ -88,7 +89,7 @@ func (s *Simulation) addNode(n Node) error {
 func NewSimulation(l *zap.Logger, nodes []Node) (*Simulation, error) {
 	s := &Simulation{
 		l:     l.Named("simulation"),
-		pq:    pq.New[*Message](),
+		pq:    pq.New[*message.Message](),
 		nodes: make(map[string]Node),
 		init:  make([]Node, 0),
 	}

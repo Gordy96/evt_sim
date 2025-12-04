@@ -1,49 +1,18 @@
 package lora
 
 import (
+	"math"
 	"time"
 
 	"github.com/Gordy96/evt-sim/simulation"
+	"github.com/Gordy96/evt-sim/simulation/message"
+	"github.com/tidwall/geodesic"
 )
 
-type Option func(*loraOptions)
-
-type loraOptions struct {
-	frequency     float64
-	power         uint64
-	receiveDelay  time.Duration
-	transmitDelay time.Duration
-	parent        simulation.Node
-}
-
-func WithPower(power uint64) Option {
-	return func(o *loraOptions) {
-		o.power = power
-	}
-}
-
-func WithReceiveDelay(receiveDelay time.Duration) Option {
-	return func(o *loraOptions) {
-		o.receiveDelay = receiveDelay
-	}
-}
-
-func WithTransmitDelay(transmitDelay time.Duration) Option {
-	return func(o *loraOptions) {
-		o.transmitDelay = transmitDelay
-	}
-}
-
-func WithParent(parent simulation.Node) Option {
-	return func(o *loraOptions) {
-		o.parent = parent
-	}
-}
-
-func New(id string, frequency float64, options ...Option) *LoraNic {
+func New(id string, frequencyHz float64, options ...Option) *LoraNic {
 	var o = loraOptions{
-		frequency:     frequency,
-		power:         20,
+		fHz:           frequencyHz,
+		Pt:            20,
 		receiveDelay:  10 * time.Millisecond,
 		transmitDelay: 10 * time.Millisecond,
 		parent:        nil,
@@ -80,65 +49,58 @@ func (l *LoraNic) Parent() simulation.Node {
 }
 
 func (l *LoraNic) Frequency() float64 {
-	return l.options.frequency
+	return l.options.fHz
 }
 
-func (l *LoraNic) Power() uint64 {
-	return l.options.power
+func (l *LoraNic) Power() float64 {
+	return l.options.Pt
 }
 
 func (l *LoraNic) ID() string {
 	return l.id
 }
 
-func (l *LoraNic) sendSelf(msg simulation.Message, delay time.Duration) {
-	l.env.SendMessage(&simulation.Message{
-		ID:     msg.ID,
-		Src:    l.ID(),
-		Dst:    l.ID(),
-		Kind:   msg.Kind,
-		Params: msg.Params,
-	}, delay)
+func (l *LoraNic) sendSelf(kind message.Kind, params message.Parameters, delay time.Duration) {
+	l.env.SendMessage(message.Builder{}.
+		WithDst(l.ID()).
+		WithSrc(l.ID()).
+		WithKind(kind).
+		WithParams(params).
+		Build(),
+		delay,
+	)
 }
 
-func (l *LoraNic) OnMessage(msg *simulation.Message) {
+func (l *LoraNic) OnMessage(msg message.Message) {
 	switch msg.Kind {
 	case "ota/start":
 		//TODO: reject when already receiving and/or calculate SNR to drop messages as noise
 		if !l.state.receiving {
 			l.state.receiving = true
-			l.sendSelf(simulation.Message{
-				Kind:   "ota/finish",
-				Params: msg.Params,
-			}, l.options.receiveDelay)
+			l.sendSelf("ota/finish", msg.Params, l.options.receiveDelay)
 		}
 	case "ota/finish":
 		l.state.receiving = false
-		l.env.SendMessage(&simulation.Message{
-			ID:     "",
-			Src:    l.ID(),
-			Dst:    l.options.parent.ID(),
-			Kind:   "interrupt/port",
-			Params: msg.Params,
-		}, 0)
+		l.env.SendMessage(message.Builder{}.
+			WithSrc(l.ID()).
+			WithDst(l.options.parent.ID()).
+			WithKind("interrupt/port").
+			WithParams(msg.Params).
+			Build(), 0)
 	case "wire/payload":
 		//TODO: reject when already sending
 		if !l.state.transmitting {
 			l.state.transmitting = true
-			l.sendSelf(simulation.Message{
-				Kind:   "wire/finish",
-				Params: msg.Params,
-			}, l.options.transmitDelay)
+			l.sendSelf("wire/finish", msg.Params, l.options.transmitDelay)
 		}
 	case "wire/finish":
 		l.state.transmitting = false
-		l.env.SendMessage(&simulation.Message{
-			ID:     "",
-			Src:    l.id,
-			Dst:    "radio",
-			Kind:   "radio/message",
-			Params: msg.Params,
-		}, 0)
+		l.env.SendMessage(message.Builder{}.
+			WithSrc(l.ID()).
+			WithDst("radio").
+			WithKind("radio/message").
+			WithParams(msg.Params).
+			Build(), 0)
 	}
 }
 
@@ -151,3 +113,46 @@ func (l *LoraNic) Close() error {
 }
 
 var _ simulation.Node = (*LoraNic)(nil)
+
+func (l *LoraNic) Reachable(msg message.Message, from simulation.Node) bool {
+	if from.ID() == l.ID() {
+		return false
+	}
+	lo, ok := from.(*LoraNic)
+	if !ok {
+		return false
+	}
+
+	if matchingFrequencies(l.Frequency(), lo.Frequency(), 0.1) {
+		return false
+	}
+
+	ps := findPositionableNode(l)
+	pd := findPositionableNode(lo)
+
+	if ps != nil && pd != nil {
+		var p1 = ps.Position()
+		var p2 = pd.Position()
+		var dist float64
+		geodesic.WGS84.Inverse(p1.Lat, p1.Lon, p2.Lat, p2.Lon, &dist, nil, nil)
+		//TODO: use calculations
+	}
+
+	return true
+}
+
+func matchingFrequencies(a, b float64, threshold float64) bool {
+	return math.Abs(a-b) < threshold
+}
+
+func findPositionableNode(src simulation.Node) simulation.Positionable {
+	if src == nil {
+		return nil
+	}
+
+	if p, ok := src.(simulation.Positionable); ok {
+		return p
+	}
+
+	return findPositionableNode(src.Parent())
+}

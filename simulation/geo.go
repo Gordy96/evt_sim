@@ -8,5 +8,6 @@ type Position struct {
 }
 
 type Positionable interface {
+	Node
 	Position() Position
 }
