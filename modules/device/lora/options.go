@@ -18,7 +18,7 @@ type loraOptions struct {
 	NF         float64
 	SF         uint64
 	SNR        map[uint64]float64
-	FadeMargin float64
+	fadeMargin float64 //TODO: until SNR calculation figured out use this as absolute max distance value
 
 	receiveDelay  time.Duration
 	transmitDelay time.Duration
@@ -79,7 +79,7 @@ func WithNSR(SF uint64, SNR float64) Option {
 
 func WithFadeMargin(fm float64) Option {
 	return func(o *loraOptions) {
-		o.FadeMargin = fm
+		o.fadeMargin = fm
 	}
 }
 

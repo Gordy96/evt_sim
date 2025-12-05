@@ -40,19 +40,28 @@ func (r *radioModule) Decode(ctx *hcl.EvalContext, parent simulation.Node) (simu
 }
 
 type LoRaNIC struct {
-	Frequency     float64       `hcl:"frequency"`
-	Power         float64       `hcl:"power"`
+	FrequencyHZ   float64       `hcl:"frequency_hz"`
+	Power         float64       `hcl:"power,optional"`
+	FadeMargin    float64       `hcl:"fade_margin,optional"`
 	ReceiveDelay  time.Duration `hcl:"receive_delay,optional"`
 	TransmitDelay time.Duration `hcl:"transmit_delay,optional"`
 }
 
 func (l *LoRaNIC) Decode(id string, parent simulation.Node) *lora.LoraNic {
-	return lora.New(
-		filepath.Join(parent.ID(), id),
-		l.Frequency,
+	opts := []lora.Option{
 		lora.WithPower(l.Power),
 		lora.WithReceiveDelay(l.ReceiveDelay),
 		lora.WithTransmitDelay(l.TransmitDelay),
 		lora.WithParent(parent),
+	}
+
+	if l.FadeMargin > 0 {
+		opts = append(opts, lora.WithFadeMargin(l.FadeMargin))
+	}
+
+	return lora.New(
+		filepath.Join(parent.ID(), id),
+		l.FrequencyHZ,
+		opts...,
 	)
 }

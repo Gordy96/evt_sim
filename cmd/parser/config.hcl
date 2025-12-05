@@ -13,6 +13,7 @@ module embedded first {
   radio lora {
     frequency = 433.0
     power     = 20
+    fade_margin = 10000 #10Km
   }
   application shared {
     path    = "modules/adapter/testdata/plugin.so"
@@ -31,6 +32,7 @@ module embedded second {
   radio lora {
     frequency = 433.0
     power     = 20
+    fade_margin = 10000 #10Km
   }
   application shared {
     path    = "modules/adapter/testdata/plugin.so"

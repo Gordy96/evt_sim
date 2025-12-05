@@ -20,12 +20,16 @@ func (e *embeddedModule) Decode(ctx *hcl.EvalContext, id string) (simulation.Nod
 
 	var ops []embedded.DeviceOption
 
-	ops = append(ops, embedded.WithPosition(simulation.Position{
-		Type: e.Position.Type,
-		Lat:  e.Position.Lat,
-		Lon:  e.Position.Lon,
-		Elev: e.Position.Elev,
-	}))
+	var zeropos position
+
+	if zeropos != e.Position {
+		ops = append(ops, embedded.WithPosition(simulation.Position{
+			Type: e.Position.Type,
+			Lat:  e.Position.Lat,
+			Lon:  e.Position.Lon,
+			Elev: e.Position.Elev,
+		}))
+	}
 
 	dev := embedded.New(id, app, ops...)
 

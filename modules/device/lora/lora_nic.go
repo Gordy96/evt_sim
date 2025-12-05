@@ -134,8 +134,11 @@ func (l *LoraNic) Reachable(msg message.Message, from simulation.Node) bool {
 		var p1 = ps.Position()
 		var p2 = pd.Position()
 		var dist float64
-		geodesic.WGS84.Inverse(p1.Lat, p1.Lon, p2.Lat, p2.Lon, &dist, nil, nil)
-		//TODO: use calculations
+		var zeropos simulation.Position
+		if zeropos != p1 && zeropos != p2 {
+			geodesic.WGS84.Inverse(p1.Lat, p1.Lon, p2.Lat, p2.Lon, &dist, nil, nil)
+			return dist < l.options.fadeMargin
+		}
 	}
 
 	return true
