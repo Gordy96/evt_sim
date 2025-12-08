@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/zclconf/go-cty/cty"
+	"go.uber.org/zap"
 )
 
 type radioModule struct {
@@ -18,7 +19,7 @@ type radioModule struct {
 	Rest hcl.Body `hcl:",remain"`
 }
 
-func (r *radioModule) Decode(ctx *hcl.EvalContext, parent simulation.Node) (simulation.Node, error) {
+func (r *radioModule) Decode(ctx *hcl.EvalContext, parent simulation.Node, l *zap.Logger) (simulation.Node, error) {
 	if r.ID == "" {
 		r.ID = "radio"
 	}
@@ -33,7 +34,7 @@ func (r *radioModule) Decode(ctx *hcl.EvalContext, parent simulation.Node) (simu
 			return nil, diags
 		}
 
-		return radio.Decode(r.ID, parent), nil
+		return radio.Decode(r.ID, parent, l), nil
 	}
 
 	return nil, errors.New("unknown radio type " + r.Type)
@@ -47,7 +48,7 @@ type LoRaNIC struct {
 	TransmitDelay time.Duration `hcl:"transmit_delay,optional"`
 }
 
-func (l *LoRaNIC) Decode(id string, parent simulation.Node) *lora.LoraNic {
+func (l *LoRaNIC) Decode(id string, parent simulation.Node, logger *zap.Logger) *lora.LoraNic {
 	opts := []lora.Option{
 		lora.WithPower(l.Power),
 		lora.WithReceiveDelay(l.ReceiveDelay),

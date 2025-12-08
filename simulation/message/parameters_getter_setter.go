@@ -15,7 +15,7 @@ func (p *Parameters) Merge(other Parameters) {
 		value := v
 		rf := reflect.ValueOf(v)
 		if rf.Kind() == reflect.Slice || rf.Kind() == reflect.Array {
-			c := reflect.MakeSlice(rf.Elem().Type(), rf.Len(), rf.Cap())
+			c := reflect.MakeSlice(rf.Type(), rf.Len(), rf.Cap())
 			reflect.Copy(c, rf)
 			value = c.Interface()
 		}

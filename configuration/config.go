@@ -4,6 +4,7 @@ import (
 	"github.com/Gordy96/evt-sim/modules/radio"
 	"github.com/Gordy96/evt-sim/simulation"
 	"github.com/hashicorp/hcl/v2"
+	"go.uber.org/zap"
 )
 
 type Config struct {
@@ -12,10 +13,10 @@ type Config struct {
 	RadioMedium *radioMedium `hcl:"radio_medium,block"`
 }
 
-func (c *Config) Decode(ctx *hcl.EvalContext) ([]simulation.Node, error) {
+func (c *Config) Decode(ctx *hcl.EvalContext, l *zap.Logger) ([]simulation.Node, error) {
 	res := make([]simulation.Node, len(c.Modules))
 	for i, module := range c.Modules {
-		m, err := module.Decode(ctx.NewChild())
+		m, err := module.Decode(ctx.NewChild(), l)
 		if err != nil {
 			return nil, err
 		}

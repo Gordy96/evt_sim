@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap/zapcore"
+	"go.uber.org/zap/zaptest"
 )
 
 func compileSo(ctx context.Context, path string) error {
@@ -53,11 +55,17 @@ func TestCompile(t *testing.T) {
 
 	port := FakePort{}
 
-	a, err := New(lib, map[string]interface{}{
-		"counter": 10,
-		"name":    "foobar",
-		"factor":  float64(12.34),
-	})
+	l := zaptest.NewLogger(t)
+
+	a, err := New(
+		lib,
+		WithParam[int]("counter", 3),
+		WithParam[string]("name", "foobar"),
+		WithParam[float64]("factor", 12.34),
+		WithLogger(func(i int, s string) {
+			l.Log(zapcore.Level(i), s)
+		}),
+	)
 	assert.NoError(t, err)
 
 	assert.NoError(t, a.Init(nil, &port))
@@ -71,9 +79,9 @@ func TestCompile(t *testing.T) {
 	assert.ElementsMatch(
 		t,
 		[]string{
-			"foobar 12.340000 hello world 11",
-			"foobar 12.340000 hello world 12",
-			"foobar 12.340000 hello world 13",
+			"foobar 12.340000 hello world 2",
+			"foobar 12.340000 hello world 1",
+			"foobar 12.340000 hello world 0",
 		},
 		port.recorded,
 	)

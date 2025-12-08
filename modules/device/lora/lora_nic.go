@@ -123,7 +123,7 @@ func (l *LoraNic) Reachable(msg message.Message, from simulation.Node) bool {
 		return false
 	}
 
-	if matchingFrequencies(l.Frequency(), lo.Frequency(), 0.1) {
+	if !matchingFrequencies(l.Frequency(), lo.Frequency(), 0.1) {
 		return false
 	}
 

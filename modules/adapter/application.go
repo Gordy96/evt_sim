@@ -15,9 +15,16 @@ extern void  attachTimeInterrupt(void *ctx, int time_ms, short periodic, interru
 extern void* dataGetter(void *ctx, char* name);
 extern void  dataSetter(void *ctx, char* name, void* value);
 extern int   stringParamGetter(void *ctx, char* name, char* buf, int size);
-extern int   intParamGetter(void *ctx, char* name, int* dst);
+extern int   int8ParamGetter(void *ctx, char* name, int8_t* dst);
+extern int   int16ParamGetter(void *ctx, char* name, int16_t* dst);
+extern int   int32ParamGetter(void *ctx, char* name, int32_t* dst);
+extern int   int64ParamGetter(void *ctx, char* name, int64_t* dst);
+extern int   uint8ParamGetter(void *ctx, char* name, uint8_t* dst);
+extern int   uint16ParamGetter(void *ctx, char* name, uint16_t* dst);
+extern int   uint32ParamGetter(void *ctx, char* name, uint32_t* dst);
+extern int   uint64ParamGetter(void *ctx, char* name, uint64_t* dst);
 extern int   doubleParamGetter(void *ctx, char* name, double* dst);
-extern void  goLog(void *ctx, char *line);
+extern void  goLog(void *ctx, int level, char *line);
 
 // trampoline wrapper
 static void tLibInit(lib_init_func_t lib_init) {
@@ -30,7 +37,14 @@ static void tLibInit(lib_init_func_t lib_init) {
 		.set_data              = dataSetter,
 		.log                   = goLog,
         .get_string_param      = stringParamGetter,
-        .get_int_param         = intParamGetter,
+        .get_int8_param        = int8ParamGetter,
+        .get_int16_param       = int16ParamGetter,
+        .get_int32_param       = int32ParamGetter,
+        .get_int64_param       = int64ParamGetter,
+        .get_uint8_param        = uint8ParamGetter,
+        .get_uint16_param       = uint16ParamGetter,
+        .get_uint32_param       = uint32ParamGetter,
+        .get_uint64_param       = uint64ParamGetter,
         .get_double_param      = doubleParamGetter,
 	};
     lib_init(iface);
@@ -58,8 +72,11 @@ import (
 )
 
 //export goLog
-func goLog(ctx *C.void, line *C.char) {
-	fmt.Printf("%s\n", C.GoString(line))
+func goLog(ctx *C.void, level C.int, line *C.char) {
+	c := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
+	if c != nil && c.log != nil {
+		c.log(int(level), C.GoString(line))
+	}
 }
 
 type portInterruptConfig struct {
@@ -127,22 +144,172 @@ func stringParamGetter(ctx *C.void, name *C.char, buf *C.char, size C.int) C.int
 	return C.int(n)
 }
 
-//export intParamGetter
-func intParamGetter(ctx *C.void, name *C.char, dst *C.int) C.int {
+//export int8ParamGetter
+func int8ParamGetter(ctx *C.void, name *C.char, dst *C.int8_t) C.int {
 	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
 	iint, ok := a.params[C.GoString(name)]
 	if !ok {
 		return -1
 	}
 
-	i, ok := iint.(int)
+	if i, ok := castAnyInt(iint); ok {
+		*dst = C.int8_t(i)
+		return 0
+	}
+
+	return -1
+}
+
+//export int16ParamGetter
+func int16ParamGetter(ctx *C.void, name *C.char, dst *C.int16_t) C.int {
+	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
+	iint, ok := a.params[C.GoString(name)]
 	if !ok {
 		return -1
 	}
 
-	*dst = C.int(i)
+	if i, ok := castAnyInt(iint); ok {
+		*dst = C.int16_t(i)
+		return 0
+	}
 
-	return 0
+	return -1
+}
+
+//export int32ParamGetter
+func int32ParamGetter(ctx *C.void, name *C.char, dst *C.int32_t) C.int {
+	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
+	iint, ok := a.params[C.GoString(name)]
+	if !ok {
+		return -1
+	}
+
+	if i, ok := castAnyInt(iint); ok {
+		*dst = C.int32_t(i)
+		return 0
+	}
+
+	return -1
+}
+
+//export int64ParamGetter
+func int64ParamGetter(ctx *C.void, name *C.char, dst *C.int64_t) C.int {
+	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
+	iint, ok := a.params[C.GoString(name)]
+	if !ok {
+		return -1
+	}
+
+	if i, ok := castAnyInt(iint); ok {
+		*dst = C.int64_t(i)
+		return 0
+	}
+
+	return -1
+}
+
+//export uint8ParamGetter
+func uint8ParamGetter(ctx *C.void, name *C.char, dst *C.uint8_t) C.int {
+	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
+	iint, ok := a.params[C.GoString(name)]
+	if !ok {
+		return -1
+	}
+
+	if i, ok := castAnyInt(iint); ok {
+		*dst = C.uint8_t(i)
+		return 0
+	}
+
+	return -1
+}
+
+//export uint16ParamGetter
+func uint16ParamGetter(ctx *C.void, name *C.char, dst *C.uint16_t) C.int {
+	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
+	iint, ok := a.params[C.GoString(name)]
+	if !ok {
+		return -1
+	}
+
+	if i, ok := castAnyInt(iint); ok {
+		*dst = C.uint16_t(i)
+		return 0
+	}
+
+	return -1
+}
+
+//export uint32ParamGetter
+func uint32ParamGetter(ctx *C.void, name *C.char, dst *C.uint32_t) C.int {
+	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
+	iint, ok := a.params[C.GoString(name)]
+	if !ok {
+		return -1
+	}
+
+	if i, ok := castAnyInt(iint); ok {
+		*dst = C.uint32_t(i)
+		return 0
+	}
+
+	return -1
+}
+
+//export uint64ParamGetter
+func uint64ParamGetter(ctx *C.void, name *C.char, dst *C.uint64_t) C.int {
+	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
+	iint, ok := a.params[C.GoString(name)]
+	if !ok {
+		return -1
+	}
+
+	if i, ok := castAnyInt(iint); ok {
+		*dst = C.uint64_t(i)
+		return 0
+	}
+
+	return -1
+}
+
+func castAnyInt(i interface{}) (int64, bool) {
+	if i, ok := i.(int64); ok {
+		return i, true
+	}
+	if i, ok := i.(int32); ok {
+		return int64(i), true
+	}
+	if i, ok := i.(int16); ok {
+		return int64(i), true
+	}
+	if i, ok := i.(int8); ok {
+		return int64(i), true
+	}
+	if i, ok := i.(int); ok {
+		return int64(i), true
+	}
+
+	return 0, false
+}
+
+func castAnyUint(i interface{}) (uint64, bool) {
+	if i, ok := i.(uint64); ok {
+		return i, true
+	}
+	if i, ok := i.(uint32); ok {
+		return uint64(i), true
+	}
+	if i, ok := i.(uint16); ok {
+		return uint64(i), true
+	}
+	if i, ok := i.(uint8); ok {
+		return uint64(i), true
+	}
+	if i, ok := i.(uint); ok {
+		return uint64(i), true
+	}
+
+	return 0, false
 }
 
 //export doubleParamGetter
@@ -153,14 +320,16 @@ func doubleParamGetter(ctx *C.void, name *C.char, dst *C.double) C.int {
 		return -1
 	}
 
-	d, ok := idouble.(float64)
-	if !ok {
-		return -1
+	if d, ok := idouble.(float64); ok {
+		*dst = C.double(d)
+		return 0
+	}
+	if d, ok := idouble.(float32); ok {
+		*dst = C.double(d)
+		return 0
 	}
 
-	*dst = C.double(d)
-
-	return 0
+	return -1
 }
 
 //export goRead
@@ -219,6 +388,7 @@ type Application struct {
 	mem             map[string]interface{}
 	params          map[string]interface{}
 	schedule        func(string, int)
+	log             func(int, string)
 }
 
 func (a *Application) Close() error {
@@ -256,7 +426,33 @@ func (a *Application) TriggerPortInterrupt(port string) error {
 	return nil
 }
 
-func New(lib *dl.SO, params map[string]interface{}) (*Application, error) {
+type Option func(*Application)
+
+func WithLogger(logger func(int, string)) Option {
+	return func(a *Application) {
+		a.log = logger
+	}
+}
+
+func WithParams(params map[string]interface{}) Option {
+	return func(a *Application) {
+		if a.params == nil {
+			a.params = make(map[string]interface{})
+		}
+		a.params = params
+	}
+}
+
+func WithParam[T any](name string, value T) Option {
+	return func(a *Application) {
+		if a.params == nil {
+			a.params = make(map[string]interface{})
+		}
+		a.params[name] = value
+	}
+}
+
+func New(lib *dl.SO, opts ...Option) (*Application, error) {
 	sym, err := lib.Func("init")
 	if err != nil {
 		return nil, err
@@ -278,7 +474,11 @@ func New(lib *dl.SO, params map[string]interface{}) (*Application, error) {
 		portInterrupts:  make(map[string]portInterruptConfig),
 		ports:           make(map[string]device.Port),
 		mem:             make(map[string]interface{}),
-		params:          params,
+		params:          make(map[string]interface{}),
+	}
+
+	for _, opt := range opts {
+		opt(a)
 	}
 
 	a.selfUnsafe = cgo.NewHandle(a)

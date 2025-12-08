@@ -8,7 +8,7 @@ import (
 
 func main() {
 	logger, _ := zap.NewDevelopment()
-	nodes, err := configuration.ParseFile("cmd/parser/config.hcl")
+	nodes, err := configuration.ParseFile("cmd/parser/config.hcl", logger)
 	if err != nil {
 		logger.Sugar().Fatal(err)
 	}

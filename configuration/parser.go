@@ -6,9 +6,10 @@ import (
 	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/hashicorp/hcl/v2/hclparse"
 	"github.com/zclconf/go-cty/cty"
+	"go.uber.org/zap"
 )
 
-func ParseFile(path string) ([]simulation.Node, error) {
+func ParseFile(path string, l *zap.Logger) ([]simulation.Node, error) {
 	parser := hclparse.NewParser()
 	file, diag := parser.ParseHCLFile(path)
 	if diag.HasErrors() {
@@ -24,7 +25,7 @@ func ParseFile(path string) ([]simulation.Node, error) {
 		return nil, diag
 	}
 
-	return root.Decode(ctx)
+	return root.Decode(ctx, l)
 }
 
 func topContext(ctx *hcl.EvalContext) *hcl.EvalContext {

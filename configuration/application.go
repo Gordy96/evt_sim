@@ -7,6 +7,8 @@ import (
 	"github.com/Gordy96/evt-sim/modules/device"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 type applicationModule struct {
@@ -14,7 +16,7 @@ type applicationModule struct {
 	Rest hcl.Body `hcl:",remain"`
 }
 
-func (a *applicationModule) Decode(ctx *hcl.EvalContext) (device.Application, error) {
+func (a *applicationModule) Decode(ctx *hcl.EvalContext, l *zap.Logger) (device.Application, error) {
 	switch a.Type {
 	case "shared":
 		var app SharedCApplication
@@ -23,7 +25,7 @@ func (a *applicationModule) Decode(ctx *hcl.EvalContext) (device.Application, er
 			return nil, diags
 		}
 
-		return app.Decode()
+		return app.Decode(ctx.NewChild(), l)
 	}
 
 	return nil, errors.New("unknown application type " + a.Type)
@@ -34,7 +36,7 @@ type SharedCApplication struct {
 	Extras hcl.Body `hcl:",remain"`
 }
 
-func (a *SharedCApplication) Decode() (device.Application, error) {
+func (a *SharedCApplication) Decode(ctx *hcl.EvalContext, l *zap.Logger) (device.Application, error) {
 	lib, err := adapter.OpenLib(a.Path)
 	if err != nil {
 		return nil, err
@@ -46,7 +48,11 @@ func (a *SharedCApplication) Decode() (device.Application, error) {
 		return nil, err
 	}
 
-	return adapter.New(lib, params)
+	appLogger := l.Named("application")
+
+	return adapter.New(lib, adapter.WithParams(params), adapter.WithLogger(func(level int, line string) {
+		appLogger.Log(zapcore.Level(level), line)
+	}))
 }
 
 func (a *SharedCApplication) finalize() (map[string]interface{}, error) {
