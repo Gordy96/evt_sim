@@ -401,6 +401,7 @@ type Application struct {
 	params          map[string]interface{}
 	schedule        func(string, int)
 	log             func(int, string)
+	concurrent      bool
 }
 
 func (a *Application) Close() error {
@@ -414,14 +415,23 @@ func (a *Application) Init(schedule func(string, int), ports ...device.Port) err
 		a.ports[port.Name()] = port
 	}
 	a.schedule = schedule
-	C.tInit(unsafe.Pointer(a.selfUnsafe), a.initFunc)
+
+	if a.concurrent {
+		go C.tInit(unsafe.Pointer(a.selfUnsafe), a.initFunc)
+	} else {
+		C.tInit(unsafe.Pointer(a.selfUnsafe), a.initFunc)
+	}
 
 	return nil
 }
 
 func (a *Application) TriggerTimeInterrupt(key string) error {
 	if i, ok := a.timerInterrupts[key]; ok {
-		C.tInterrupt(unsafe.Pointer(a.selfUnsafe), i.cb)
+		if a.concurrent {
+			go C.tInterrupt(unsafe.Pointer(a.selfUnsafe), i.cb)
+		} else {
+			C.tInterrupt(unsafe.Pointer(a.selfUnsafe), i.cb)
+		}
 		if i.periodic {
 			a.schedule(key, i.timeMS)
 		}
@@ -432,7 +442,11 @@ func (a *Application) TriggerTimeInterrupt(key string) error {
 
 func (a *Application) TriggerPortInterrupt(port string) error {
 	if i, ok := a.portInterrupts[port]; ok {
-		C.tInterrupt(unsafe.Pointer(a.selfUnsafe), i.cb)
+		if a.concurrent {
+			go C.tInterrupt(unsafe.Pointer(a.selfUnsafe), i.cb)
+		} else {
+			C.tInterrupt(unsafe.Pointer(a.selfUnsafe), i.cb)
+		}
 	}
 
 	return nil
@@ -464,6 +478,12 @@ func WithParam[T any](name string, value T) Option {
 	}
 }
 
+func WithConcurrency(c bool) Option {
+	return func(a *Application) {
+		a.concurrent = c
+	}
+}
+
 func New(lib *dl.SO, opts ...Option) (*Application, error) {
 	sym, err := lib.Func("init")
 	if err != nil {
@@ -487,6 +507,7 @@ func New(lib *dl.SO, opts ...Option) (*Application, error) {
 		ports:           make(map[string]device.Port),
 		mem:             make(map[string]interface{}),
 		params:          make(map[string]interface{}),
+		concurrent:      false,
 	}
 
 	for _, opt := range opts {
