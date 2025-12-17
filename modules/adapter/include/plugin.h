@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+typedef unsigned long size_t;
+
 typedef enum {
   	DebugLevel = - 1,
   	// InfoLevel is the default logging priority.
