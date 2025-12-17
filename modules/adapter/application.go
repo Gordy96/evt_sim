@@ -142,6 +142,7 @@ func stringParamGetter(ctx *C.void, name *C.cchar_t, buf *C.char, size C.int) C.
 	src := []byte(str)
 	n := min(len(str), int(size))
 	C.memcpy(unsafe.Pointer(buf), unsafe.Pointer(&src[0]), C.size_t(n))
+	buf[n] = 0
 
 	return C.int(n)
 }
