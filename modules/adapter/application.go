@@ -10,13 +10,13 @@ package adapter
 typedef const char cchar_t;
 
 // forward declaration for trampoline
-extern int   goRead(void *ctx, const char* port, char* buf, int size);
-extern int   goWrite(void *ctx, const char* port, char* buf, int size);
+extern int   goRead(void *ctx, const char* port, char* buf, size_t size);
+extern int   goWrite(void *ctx, const char* port, char* buf, size_t size);
 extern void  attachPortInterrupt(void *ctx, const char* port, interrupt_callback_t cb);
 extern void  attachTimeInterrupt(void *ctx, int time_ms, short periodic, interrupt_callback_t cb);
 extern void* dataGetter(void *ctx, const char* name);
 extern void  dataSetter(void *ctx, const char* name, void* value);
-extern int   stringParamGetter(void *ctx, const char* name, char* buf, int size);
+extern int   stringParamGetter(void *ctx, const char* name, char* buf, size_t size);
 extern int   int8ParamGetter(void *ctx, const char* name, int8_t* dst);
 extern int   int16ParamGetter(void *ctx, const char* name, int16_t* dst);
 extern int   int32ParamGetter(void *ctx, const char* name, int32_t* dst);
@@ -119,15 +119,8 @@ func attachTimeInterrupt(ctx *C.void, timeMS C.int, periodic C.short, cb C.inter
 	c.schedule(key, cfg.timeMS)
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
 //export stringParamGetter
-func stringParamGetter(ctx *C.void, name *C.cchar_t, buf *C.char, size C.int) C.int {
+func stringParamGetter(ctx *C.void, name *C.cchar_t, buf *C.char, size C.size_t) C.int {
 	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
 	istr, ok := a.params[C.GoString(name)]
 	if !ok {
@@ -140,11 +133,27 @@ func stringParamGetter(ctx *C.void, name *C.cchar_t, buf *C.char, size C.int) C.
 	}
 
 	src := []byte(str)
-	n := min(len(str), int(size))
-	C.memcpy(unsafe.Pointer(buf), unsafe.Pointer(&src[0]), C.size_t(n))
-	buf[n] = 0
 
-	return C.int(n)
+	ml := int(size) - 1
+	if ml < 0 {
+		return 0
+	}
+
+	n := len(src)
+	if n > ml {
+		n = ml
+	}
+
+	// C buffer as Go slice
+	dst := unsafe.Slice((*byte)(unsafe.Pointer(buf)), int(size))
+
+	// Copy bytes
+	copy(dst[:n], src[:n])
+
+	// Explicit null termination
+	dst[n] = 0
+
+	return C.int(n) // length excluding '\0'
 }
 
 //export int8ParamGetter
@@ -336,7 +345,7 @@ func doubleParamGetter(ctx *C.void, name *C.cchar_t, dst *C.double) C.int {
 }
 
 //export goRead
-func goRead(ctx *C.void, port *C.cchar_t, buf *C.char, size C.int) C.int {
+func goRead(ctx *C.void, port *C.cchar_t, buf *C.char, size C.size_t) C.int {
 	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
 
 	if p, ok := a.ports[C.GoString(port)]; ok {
@@ -352,7 +361,7 @@ func goRead(ctx *C.void, port *C.cchar_t, buf *C.char, size C.int) C.int {
 }
 
 //export goWrite
-func goWrite(ctx *C.void, port *C.cchar_t, buf *C.char, size C.int) C.int {
+func goWrite(ctx *C.void, port *C.cchar_t, buf *C.char, size C.size_t) C.int {
 	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
 
 	if p, ok := a.ports[C.GoString(port)]; ok {

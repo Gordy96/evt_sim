@@ -41,7 +41,6 @@ void init(void *ctx) {
     ENV.get_uint8_param(ctx, "initiator", &app->is_initiator);
     ENV.get_double_param(ctx, "factor", &app->factor);
     int n = ENV.get_string_param(ctx, "name", app->name, 256);
-    app->name[n] = 0;
     ENV.set_data(ctx, "this", app);
     ENV.attach_port_interrupt(ctx, "port", cb);
     ENV.log(ctx, InfoLevel, "initializing");
