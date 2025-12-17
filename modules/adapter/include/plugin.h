@@ -22,24 +22,24 @@ typedef enum {
   	FatalLevel
 } LogLevel;
 
-typedef int    (*read_cb_t)(void *ctx, char* port, char* buf, int size);
-typedef int    (*write_cb_t)(void *ctx, char* port, char* buf, int size);
+typedef int    (*read_cb_t)(void *ctx, const char* port, char* buf, int size);
+typedef int    (*write_cb_t)(void *ctx, const char* port, char* buf, int size);
 typedef void   (*interrupt_callback_t)(void *ctx);
-typedef void   (*attach_port_interrupt_t)(void *ctx, char* port, interrupt_callback_t cb);
+typedef void   (*attach_port_interrupt_t)(void *ctx, const char* port, interrupt_callback_t cb);
 typedef void   (*attach_time_interrupt_t)(void *ctx, int time_ms, short periodic, interrupt_callback_t cb);
 typedef void   (*shutdown_t)(void *ctx);
-typedef void*  (*getter_t)(void *ctx, char* name);
-typedef void   (*setter_t)(void *ctx, char* name, void* value);
-typedef int    (*string_param_getter_t)(void *ctx, char* name, char* buf, int size);
-typedef int    (*int8_param_getter_t)(void *ctx, char* name, int8_t* dst);
-typedef int    (*int16_param_getter_t)(void *ctx, char* name, int16_t* dst);
-typedef int    (*int32_param_getter_t)(void *ctx, char* name, int32_t* dst);
-typedef int    (*int64_param_getter_t)(void *ctx, char* name, int64_t* dst);
-typedef int    (*uint8_param_getter_t)(void *ctx, char* name, uint8_t* dst);
-typedef int    (*uint16_param_getter_t)(void *ctx, char* name, uint16_t* dst);
-typedef int    (*uint32_param_getter_t)(void *ctx, char* name, uint32_t* dst);
-typedef int    (*uint64_param_getter_t)(void *ctx, char* name, uint64_t* dst);
-typedef int    (*double_param_getter_t)(void *ctx, char* name, double* dst);
+typedef void*  (*getter_t)(void *ctx, const char* name);
+typedef void   (*setter_t)(void *ctx, const char* name, void* value);
+typedef int    (*string_param_getter_t)(void *ctx, const char* name, char* buf, int size);
+typedef int    (*int8_param_getter_t)(void *ctx, const char* name, int8_t* dst);
+typedef int    (*int16_param_getter_t)(void *ctx, const char* name, int16_t* dst);
+typedef int    (*int32_param_getter_t)(void *ctx, const char* name, int32_t* dst);
+typedef int    (*int64_param_getter_t)(void *ctx, const char* name, int64_t* dst);
+typedef int    (*uint8_param_getter_t)(void *ctx, const char* name, uint8_t* dst);
+typedef int    (*uint16_param_getter_t)(void *ctx, const char* name, uint16_t* dst);
+typedef int    (*uint32_param_getter_t)(void *ctx, const char* name, uint32_t* dst);
+typedef int    (*uint64_param_getter_t)(void *ctx, const char* name, uint64_t* dst);
+typedef int    (*double_param_getter_t)(void *ctx, const char* name, double* dst);
 typedef void   (*log_t)(void *ctx, LogLevel level, char *line);
 
 typedef struct {

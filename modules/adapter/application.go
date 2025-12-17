@@ -7,23 +7,25 @@ package adapter
 #include <string.h>
 #include "./include/plugin.h"
 
+typedef const char cchar_t;
+
 // forward declaration for trampoline
-extern int   goRead(void *ctx, char* port, char* buf, int size);
-extern int   goWrite(void *ctx, char* port, char* buf, int size);
-extern void  attachPortInterrupt(void *ctx, char* port, interrupt_callback_t cb);
+extern int   goRead(void *ctx, const char* port, char* buf, int size);
+extern int   goWrite(void *ctx, const char* port, char* buf, int size);
+extern void  attachPortInterrupt(void *ctx, const char* port, interrupt_callback_t cb);
 extern void  attachTimeInterrupt(void *ctx, int time_ms, short periodic, interrupt_callback_t cb);
-extern void* dataGetter(void *ctx, char* name);
-extern void  dataSetter(void *ctx, char* name, void* value);
-extern int   stringParamGetter(void *ctx, char* name, char* buf, int size);
-extern int   int8ParamGetter(void *ctx, char* name, int8_t* dst);
-extern int   int16ParamGetter(void *ctx, char* name, int16_t* dst);
-extern int   int32ParamGetter(void *ctx, char* name, int32_t* dst);
-extern int   int64ParamGetter(void *ctx, char* name, int64_t* dst);
-extern int   uint8ParamGetter(void *ctx, char* name, uint8_t* dst);
-extern int   uint16ParamGetter(void *ctx, char* name, uint16_t* dst);
-extern int   uint32ParamGetter(void *ctx, char* name, uint32_t* dst);
-extern int   uint64ParamGetter(void *ctx, char* name, uint64_t* dst);
-extern int   doubleParamGetter(void *ctx, char* name, double* dst);
+extern void* dataGetter(void *ctx, const char* name);
+extern void  dataSetter(void *ctx, const char* name, void* value);
+extern int   stringParamGetter(void *ctx, const char* name, char* buf, int size);
+extern int   int8ParamGetter(void *ctx, const char* name, int8_t* dst);
+extern int   int16ParamGetter(void *ctx, const char* name, int16_t* dst);
+extern int   int32ParamGetter(void *ctx, const char* name, int32_t* dst);
+extern int   int64ParamGetter(void *ctx, const char* name, int64_t* dst);
+extern int   uint8ParamGetter(void *ctx, const char* name, uint8_t* dst);
+extern int   uint16ParamGetter(void *ctx, const char* name, uint16_t* dst);
+extern int   uint32ParamGetter(void *ctx, const char* name, uint32_t* dst);
+extern int   uint64ParamGetter(void *ctx, const char* name, uint64_t* dst);
+extern int   doubleParamGetter(void *ctx, const char* name, double* dst);
 extern void  goLog(void *ctx, int level, char *line);
 
 // trampoline wrapper
@@ -85,7 +87,7 @@ type portInterruptConfig struct {
 }
 
 //export attachPortInterrupt
-func attachPortInterrupt(ctx *C.void, port *C.char, cb C.interrupt_callback_t) {
+func attachPortInterrupt(ctx *C.void, port *C.cchar_t, cb C.interrupt_callback_t) {
 	c := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
 	p := C.GoString(port)
 	cfg := portInterruptConfig{
@@ -125,7 +127,7 @@ func min(a, b int) int {
 }
 
 //export stringParamGetter
-func stringParamGetter(ctx *C.void, name *C.char, buf *C.char, size C.int) C.int {
+func stringParamGetter(ctx *C.void, name *C.cchar_t, buf *C.char, size C.int) C.int {
 	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
 	istr, ok := a.params[C.GoString(name)]
 	if !ok {
@@ -145,7 +147,7 @@ func stringParamGetter(ctx *C.void, name *C.char, buf *C.char, size C.int) C.int
 }
 
 //export int8ParamGetter
-func int8ParamGetter(ctx *C.void, name *C.char, dst *C.int8_t) C.int {
+func int8ParamGetter(ctx *C.void, name *C.cchar_t, dst *C.int8_t) C.int {
 	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
 	iint, ok := a.params[C.GoString(name)]
 	if !ok {
@@ -161,7 +163,7 @@ func int8ParamGetter(ctx *C.void, name *C.char, dst *C.int8_t) C.int {
 }
 
 //export int16ParamGetter
-func int16ParamGetter(ctx *C.void, name *C.char, dst *C.int16_t) C.int {
+func int16ParamGetter(ctx *C.void, name *C.cchar_t, dst *C.int16_t) C.int {
 	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
 	iint, ok := a.params[C.GoString(name)]
 	if !ok {
@@ -177,7 +179,7 @@ func int16ParamGetter(ctx *C.void, name *C.char, dst *C.int16_t) C.int {
 }
 
 //export int32ParamGetter
-func int32ParamGetter(ctx *C.void, name *C.char, dst *C.int32_t) C.int {
+func int32ParamGetter(ctx *C.void, name *C.cchar_t, dst *C.int32_t) C.int {
 	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
 	iint, ok := a.params[C.GoString(name)]
 	if !ok {
@@ -193,7 +195,7 @@ func int32ParamGetter(ctx *C.void, name *C.char, dst *C.int32_t) C.int {
 }
 
 //export int64ParamGetter
-func int64ParamGetter(ctx *C.void, name *C.char, dst *C.int64_t) C.int {
+func int64ParamGetter(ctx *C.void, name *C.cchar_t, dst *C.int64_t) C.int {
 	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
 	iint, ok := a.params[C.GoString(name)]
 	if !ok {
@@ -209,7 +211,7 @@ func int64ParamGetter(ctx *C.void, name *C.char, dst *C.int64_t) C.int {
 }
 
 //export uint8ParamGetter
-func uint8ParamGetter(ctx *C.void, name *C.char, dst *C.uint8_t) C.int {
+func uint8ParamGetter(ctx *C.void, name *C.cchar_t, dst *C.uint8_t) C.int {
 	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
 	iint, ok := a.params[C.GoString(name)]
 	if !ok {
@@ -225,7 +227,7 @@ func uint8ParamGetter(ctx *C.void, name *C.char, dst *C.uint8_t) C.int {
 }
 
 //export uint16ParamGetter
-func uint16ParamGetter(ctx *C.void, name *C.char, dst *C.uint16_t) C.int {
+func uint16ParamGetter(ctx *C.void, name *C.cchar_t, dst *C.uint16_t) C.int {
 	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
 	iint, ok := a.params[C.GoString(name)]
 	if !ok {
@@ -241,7 +243,7 @@ func uint16ParamGetter(ctx *C.void, name *C.char, dst *C.uint16_t) C.int {
 }
 
 //export uint32ParamGetter
-func uint32ParamGetter(ctx *C.void, name *C.char, dst *C.uint32_t) C.int {
+func uint32ParamGetter(ctx *C.void, name *C.cchar_t, dst *C.uint32_t) C.int {
 	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
 	iint, ok := a.params[C.GoString(name)]
 	if !ok {
@@ -257,7 +259,7 @@ func uint32ParamGetter(ctx *C.void, name *C.char, dst *C.uint32_t) C.int {
 }
 
 //export uint64ParamGetter
-func uint64ParamGetter(ctx *C.void, name *C.char, dst *C.uint64_t) C.int {
+func uint64ParamGetter(ctx *C.void, name *C.cchar_t, dst *C.uint64_t) C.int {
 	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
 	iint, ok := a.params[C.GoString(name)]
 	if !ok {
@@ -313,7 +315,7 @@ func castAnyUint(i interface{}) (uint64, bool) {
 }
 
 //export doubleParamGetter
-func doubleParamGetter(ctx *C.void, name *C.char, dst *C.double) C.int {
+func doubleParamGetter(ctx *C.void, name *C.cchar_t, dst *C.double) C.int {
 	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
 	idouble, ok := a.params[C.GoString(name)]
 	if !ok {
@@ -333,7 +335,7 @@ func doubleParamGetter(ctx *C.void, name *C.char, dst *C.double) C.int {
 }
 
 //export goRead
-func goRead(ctx *C.void, port *C.char, buf *C.char, size C.int) C.int {
+func goRead(ctx *C.void, port *C.cchar_t, buf *C.char, size C.int) C.int {
 	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
 
 	if p, ok := a.ports[C.GoString(port)]; ok {
@@ -349,7 +351,7 @@ func goRead(ctx *C.void, port *C.char, buf *C.char, size C.int) C.int {
 }
 
 //export goWrite
-func goWrite(ctx *C.void, port *C.char, buf *C.char, size C.int) C.int {
+func goWrite(ctx *C.void, port *C.cchar_t, buf *C.char, size C.int) C.int {
 	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
 
 	if p, ok := a.ports[C.GoString(port)]; ok {
@@ -364,14 +366,14 @@ func goWrite(ctx *C.void, port *C.char, buf *C.char, size C.int) C.int {
 }
 
 //export dataGetter
-func dataGetter(ctx *C.void, name *C.char) *C.void {
+func dataGetter(ctx *C.void, name *C.cchar_t) *C.void {
 	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
 	v, _ := a.mem[C.GoString(name)].(unsafe.Pointer)
 	return (*C.void)(v)
 }
 
 //export dataSetter
-func dataSetter(ctx *C.void, name *C.char, value *C.void) {
+func dataSetter(ctx *C.void, name *C.cchar_t, value *C.void) {
 	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
 	a.mem[C.GoString(name)] = unsafe.Pointer(value)
 }
