@@ -1,6 +1,8 @@
 package radio
 
 import (
+	"time"
+
 	"github.com/Gordy96/evt-sim/simulation"
 	"github.com/Gordy96/evt-sim/simulation/message"
 )
@@ -68,12 +70,12 @@ func (r *RadioMedium) OnMessage(msg message.Message) {
 	}
 
 	for _, node := range r.radios {
-		if node.Reachable(msg, src) {
+		if ttf := node.Reachable(msg, src); ttf >= 0 {
 			mb := msg.Builder().
 				WithDst(node.ID()).
 				WithSrc("radio").
 				WithKind("ota/start")
-			r.env.SendMessage(mb.Build(), 0)
+			r.env.SendMessage(mb.Build(), ttf)
 		}
 	}
 }
@@ -90,5 +92,5 @@ type radioNode interface {
 	simulation.Node
 	Frequency() float64
 	Power() float64
-	Reachable(msg message.Message, other simulation.Node) bool
+	Reachable(msg message.Message, other simulation.Node) time.Duration
 }

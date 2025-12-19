@@ -114,17 +114,17 @@ func (l *LoraNic) Close() error {
 
 var _ simulation.Node = (*LoraNic)(nil)
 
-func (l *LoraNic) Reachable(msg message.Message, from simulation.Node) bool {
+func (l *LoraNic) Reachable(msg message.Message, from simulation.Node) time.Duration {
 	if from.ID() == l.ID() {
-		return false
+		return -1
 	}
 	lo, ok := from.(*LoraNic)
 	if !ok {
-		return false
+		return -1
 	}
 
 	if !matchingFrequencies(l.Frequency(), lo.Frequency(), 0.1) {
-		return false
+		return -1
 	}
 
 	ps := findPositionableNode(l)
@@ -137,11 +137,26 @@ func (l *LoraNic) Reachable(msg message.Message, from simulation.Node) bool {
 		var zeropos simulation.Position
 		if zeropos != p1 && zeropos != p2 {
 			geodesic.WGS84.Inverse(p1.Lat, p1.Lon, p2.Lat, p2.Lon, &dist, nil, nil)
-			return dist < l.options.fadeMargin
+			if dist > l.options.fadeMargin {
+				return -1
+			}
+
+			return timeOfFlightAirNsInt(dist)
 		}
 	}
 
-	return true
+	return 0
+}
+
+const (
+	speedOfLightInt = int64(299_792_458) // m/s
+	airCoefPPM      = int64(999_700)     // 0.9997 expressed in ppm
+)
+
+func timeOfFlightAirNsInt(distanceMeters float64) time.Duration {
+	speedInAir := speedOfLightInt * airCoefPPM / 1_000_000
+	t := int64(distanceMeters*1_000_000_000) / speedInAir
+	return time.Duration(t) * time.Nanosecond
 }
 
 func matchingFrequencies(a, b float64, threshold float64) bool {
