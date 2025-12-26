@@ -23,6 +23,7 @@ void cb(void *ctx) {
     char buf[256];
     int n = ENV.read_port(ctx, "port", buf, 256);
     if (n > 0) {
+        ENV.dump_packet(ctx, "IN", buf, n);
         buf[n] = '\0';
         ENV.log(ctx, DebugLevel, "received message");
         ENV.log(ctx, DebugLevel, buf);
@@ -31,6 +32,7 @@ void cb(void *ctx) {
             char temp[256];
             n = sprintf(temp, "%s %f %s %d", app->name, app->factor, buf, app->counter);
             ENV.write_port(ctx, "port", temp, n); // echo back
+            ENV.dump_packet(ctx, "OUT", temp, n);
         }
     }
 }
@@ -51,6 +53,7 @@ void init(void *ctx) {
         ENV.log(ctx, DebugLevel, "sending initial message");
         ENV.log(ctx, DebugLevel, temp);
         ENV.write_port(ctx, "port", temp, n);
+        ENV.dump_packet(ctx, "OUT", temp, n);
     }
 }
 

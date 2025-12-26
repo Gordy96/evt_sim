@@ -27,6 +27,7 @@ extern int   uint32ParamGetter(void *ctx, const char* name, uint32_t* dst);
 extern int   uint64ParamGetter(void *ctx, const char* name, uint64_t* dst);
 extern int   doubleParamGetter(void *ctx, const char* name, double* dst);
 extern void  goLog(void *ctx, int level, char *line);
+extern void  goPacketDump(void *ctx, const char* dir, void *data, size_t size);
 
 // trampoline wrapper
 static void tLibInit(lib_init_func_t lib_init) {
@@ -38,6 +39,7 @@ static void tLibInit(lib_init_func_t lib_init) {
 		.get_data              = dataGetter,
 		.set_data              = dataSetter,
 		.log                   = goLog,
+		.dump_packet           = goPacketDump,
         .get_string_param      = stringParamGetter,
         .get_int8_param        = int8ParamGetter,
         .get_int16_param       = int16ParamGetter,
@@ -65,6 +67,7 @@ static void tInterrupt(void *ctx, interrupt_callback_t cb) {
 import "C"
 
 import (
+	"encoding/hex"
 	"fmt"
 	"runtime/cgo"
 	"unsafe"
@@ -72,6 +75,15 @@ import (
 	"github.com/Gordy96/cgo_dl/dl"
 	"github.com/Gordy96/evt-sim/modules/device"
 )
+
+//export goPacketDump
+func goPacketDump(ctx *C.void, dir *C.cchar_t, data *C.void, size C.size_t) {
+	c := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
+	if c != nil && c.log != nil {
+		dat := unsafe.Slice((*byte)(unsafe.Pointer(data)), int(size))
+		c.log(-1, C.GoString(dir)+":\n"+hex.Dump(dat))
+	}
+}
 
 //export goLog
 func goLog(ctx *C.void, level C.int, line *C.char) {

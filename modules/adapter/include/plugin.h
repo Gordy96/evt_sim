@@ -43,6 +43,7 @@ typedef int    (*uint32_param_getter_t)(void *ctx, const char* name, uint32_t* d
 typedef int    (*uint64_param_getter_t)(void *ctx, const char* name, uint64_t* dst);
 typedef int    (*double_param_getter_t)(void *ctx, const char* name, double* dst);
 typedef void   (*log_t)(void *ctx, LogLevel level, char *line);
+typedef void   (*packet_dump)(void *ctx, const char* dir, void *line, size_t size);
 
 typedef struct {
     read_cb_t                read_port;
@@ -62,6 +63,7 @@ typedef struct {
 	uint64_param_getter_t    get_uint64_param;
     double_param_getter_t    get_double_param;
     log_t                    log;
+    packet_dump              dump_packet;
 } interface_t;
 
 typedef void (*lib_init_func_t)(interface_t iface);
