@@ -32,9 +32,10 @@ func (a *applicationModule) Decode(ctx *hcl.EvalContext, l *zap.Logger) (device.
 }
 
 type SharedCApplication struct {
-	Path       string   `hcl:"path"`
-	Concurrent bool     `hcl:"concurrent,optional"`
-	Extras     hcl.Body `hcl:",remain"`
+	Path        string   `hcl:"path"`
+	Concurrent  bool     `hcl:"concurrent,optional"`
+	DumpPackets bool     `hcl:"dump_packets,optional"`
+	Extras      hcl.Body `hcl:",remain"`
 }
 
 func (a *SharedCApplication) Decode(ctx *hcl.EvalContext, l *zap.Logger) (device.Application, error) {
@@ -58,6 +59,7 @@ func (a *SharedCApplication) Decode(ctx *hcl.EvalContext, l *zap.Logger) (device
 			appLogger.Log(zapcore.Level(level), line)
 		}),
 		adapter.WithConcurrency(a.Concurrent),
+		adapter.WithDumpPackets(a.DumpPackets),
 	)
 }
 

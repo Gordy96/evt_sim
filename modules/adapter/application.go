@@ -79,7 +79,7 @@ import (
 //export goPacketDump
 func goPacketDump(ctx *C.void, dir *C.cchar_t, data *C.void, size C.size_t) {
 	c := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
-	if c != nil && c.log != nil {
+	if c != nil && c.log != nil && c.dumpPackets {
 		dat := unsafe.Slice((*byte)(unsafe.Pointer(data)), int(size))
 		c.log(-1, C.GoString(dir)+":\n"+hex.Dump(dat))
 	}
@@ -414,6 +414,7 @@ type Application struct {
 	schedule        func(string, int)
 	log             func(int, string)
 	concurrent      bool
+	dumpPackets     bool
 }
 
 func (a *Application) Close() error {
@@ -493,6 +494,12 @@ func WithParam[T any](name string, value T) Option {
 func WithConcurrency(c bool) Option {
 	return func(a *Application) {
 		a.concurrent = c
+	}
+}
+
+func WithDumpPackets(d bool) Option {
+	return func(a *Application) {
+		a.dumpPackets = d
 	}
 }
 
