@@ -1,6 +1,9 @@
 package configuration
 
 import (
+	"os"
+	"strings"
+
 	"github.com/Gordy96/evt-sim/simulation"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"
@@ -16,7 +19,19 @@ func ParseFile(path string, l *zap.Logger) ([]simulation.Node, error) {
 		return nil, diag
 	}
 
-	ctx := &hcl.EvalContext{}
+	env := make(map[string]cty.Value)
+
+	for _, kv := range os.Environ() {
+		if eq := strings.IndexByte(kv, '='); eq != -1 {
+			key := kv[:eq]
+			val := kv[eq+1:]
+			env[key] = cty.StringVal(val)
+		}
+	}
+
+	ctx := &hcl.EvalContext{
+		Variables: env,
+	}
 
 	var root Config
 
