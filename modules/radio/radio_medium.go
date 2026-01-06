@@ -1,10 +1,13 @@
 package radio
 
 import (
+	"math"
 	"time"
 
 	"github.com/Gordy96/evt-sim/simulation"
 	"github.com/Gordy96/evt-sim/simulation/message"
+	"github.com/tidwall/geodesic"
+	"go.uber.org/zap"
 )
 
 type mediumOptions struct {
@@ -19,7 +22,7 @@ func WithBackgroundNoiseLevel(l float64) Option {
 	}
 }
 
-func NewRadioMedium(options ...Option) *RadioMedium {
+func NewRadioMedium(l *zap.Logger, options ...Option) *RadioMedium {
 	var o mediumOptions
 
 	for _, opt := range options {
@@ -28,6 +31,7 @@ func NewRadioMedium(options ...Option) *RadioMedium {
 
 	temp := &RadioMedium{
 		mediumOptions: o,
+		l:             l,
 	}
 
 	return temp
@@ -39,6 +43,7 @@ type RadioMedium struct {
 	env           simulation.Environment
 	radios        []radioNode
 	mediumOptions mediumOptions
+	l             *zap.Logger
 }
 
 func (r *RadioMedium) Parent() simulation.Node {
@@ -70,7 +75,10 @@ func (r *RadioMedium) OnMessage(msg message.Message) {
 	}
 
 	for _, node := range r.radios {
-		if ttf := node.Reachable(msg, src); ttf >= 0 {
+		reachable, dist := distanceToOther(src, node)
+
+		if reachable {
+			ttf := timeOfFlightAirNsInt(dist)
 			mb := msg.Builder().
 				WithDst(node.ID()).
 				WithSrc("radio").
@@ -78,6 +86,13 @@ func (r *RadioMedium) OnMessage(msg message.Message) {
 			r.env.SendMessage(mb.Build(), ttf)
 		}
 	}
+}
+
+type radioNode interface {
+	simulation.Node
+	Frequency() float64
+	Power() float64
+	Reachable(dist float64) bool
 }
 
 func (r *RadioMedium) cacheRadioNodes(nodes []simulation.Node) {
@@ -88,9 +103,68 @@ func (r *RadioMedium) cacheRadioNodes(nodes []simulation.Node) {
 	}
 }
 
-type radioNode interface {
-	simulation.Node
-	Frequency() float64
-	Power() float64
-	Reachable(msg message.Message, other simulation.Node) time.Duration
+func distanceToOther(from simulation.Node, to simulation.Node) (bool, float64) {
+	if from.ID() == to.ID() {
+		return false, -1
+	}
+	f, ok := from.(radioNode)
+	if !ok {
+		return false, -1
+	}
+
+	t, ok := to.(radioNode)
+	if !ok {
+		return false, -1
+	}
+
+	if !matchingFrequencies(t.Frequency(), f.Frequency(), 0.1) {
+		return false, -1
+	}
+
+	ps := findPositionableNode(t)
+	pd := findPositionableNode(f)
+
+	if ps != nil && pd != nil {
+		var p1 = ps.Position()
+		var p2 = pd.Position()
+		var dist float64
+		var zeropos simulation.Position
+		if zeropos != p1 && zeropos != p2 {
+			geodesic.WGS84.Inverse(p1.Lat, p1.Lon, p2.Lat, p2.Lon, &dist, nil, nil)
+			if !t.Reachable(dist) {
+				return false, dist
+			}
+
+			return true, dist
+		}
+	}
+
+	return false, 0
+}
+
+func matchingFrequencies(a, b float64, threshold float64) bool {
+	return math.Abs(a-b) < threshold
+}
+
+func findPositionableNode(src simulation.Node) simulation.Positionable {
+	if src == nil {
+		return nil
+	}
+
+	if p, ok := src.(simulation.Positionable); ok {
+		return p
+	}
+
+	return findPositionableNode(src.Parent())
+}
+
+const (
+	speedOfLightInt = int64(299_792_458) // m/s
+	airCoefPPM      = int64(999_700)     // 0.9997 expressed in ppm
+)
+
+func timeOfFlightAirNsInt(distanceMeters float64) time.Duration {
+	speedInAir := speedOfLightInt * airCoefPPM / 1_000_000
+	t := int64(distanceMeters*1_000_000_000) / speedInAir
+	return time.Duration(t) * time.Nanosecond
 }

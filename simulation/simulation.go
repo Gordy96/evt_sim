@@ -6,14 +6,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/Gordy96/evt-sim/internal/pq"
 	"github.com/Gordy96/evt-sim/simulation/message"
 	"go.uber.org/zap"
 )
 
 type Simulation struct {
 	l       *zap.Logger
-	pq      *pq.PriorityQueue[*message.Message]
+	pq      *message.PriorityQueue
 	nodes   map[string]Node
 	init    []Node
 	now     time.Time
@@ -41,15 +40,24 @@ func (s *Simulation) Run() {
 		node.Init(s)
 	}
 
-	for s.pq.Len() > 0 {
-		msg := s.pq.Pop()
-		s.l.Debug("Message", zap.Any("msg", msg))
-		s.elapsed += msg.Timestamp.Sub(s.now)
-		s.now = msg.Timestamp
-		node := s.FindNode(msg.Dst)
-		node.OnMessage(*msg)
+	deadline := time.Now().Add(time.Second)
+	lastEventTime := time.Now()
+
+	for time.Now().Before(deadline) {
+		if s.pq.Len() > 0 {
+			msg := s.pq.Pop()
+			s.l.Debug("Message", zap.Any("msg", msg))
+			s.elapsed += msg.Timestamp.Sub(s.now)
+			s.now = msg.Timestamp
+			node := s.FindNode(msg.Dst)
+			node.OnMessage(*msg)
+
+			deadline = time.Now().Add(time.Second)
+			lastEventTime = time.Now()
+		}
 	}
-	s.l.Info("finished", zap.Duration("elapsed", time.Since(start)), zap.Duration("simulation_time", s.now.Sub(time.Time{})))
+
+	s.l.Info("finished", zap.Duration("elapsed", lastEventTime.Sub(start)), zap.Duration("simulation_time", s.now.Sub(time.Time{})))
 
 	for _, node := range s.init {
 		node.Close()
@@ -89,7 +97,7 @@ func (s *Simulation) addNode(n Node) error {
 func NewSimulation(l *zap.Logger, nodes []Node) (*Simulation, error) {
 	s := &Simulation{
 		l:     l.Named("simulation"),
-		pq:    pq.New[*message.Message](),
+		pq:    message.NewQueue(),
 		nodes: make(map[string]Node),
 		init:  make([]Node, 0),
 	}

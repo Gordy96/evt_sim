@@ -105,7 +105,7 @@ func main() {
 		//think of it as 'aether' anything that has radio can talk to it,
 		//then it decides what simulation should receive message (effectively duplicating messages)
 		//based on node parameters (potentially simulation can have ports/interfaces, that would hold parameters/talk to 'aether')
-		radio.NewRadioMedium(),
+		radio.NewRadioMedium(logger),
 	})
 
 	if err != nil {

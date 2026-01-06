@@ -31,7 +31,7 @@ func (c *Config) Decode(ctx *hcl.EvalContext, l *zap.Logger) ([]simulation.Node,
 			opts = append(opts, radio.WithBackgroundNoiseLevel(*c.RadioMedium.BackgroundNoiseLevel))
 		}
 
-		res = append(res, radio.NewRadioMedium(opts...))
+		res = append(res, radio.NewRadioMedium(l, opts...))
 	}
 
 	return res, nil

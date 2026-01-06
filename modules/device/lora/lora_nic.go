@@ -1,12 +1,10 @@
 package lora
 
 import (
-	"math"
 	"time"
 
 	"github.com/Gordy96/evt-sim/simulation"
 	"github.com/Gordy96/evt-sim/simulation/message"
-	"github.com/tidwall/geodesic"
 )
 
 func New(id string, frequencyHz float64, options ...Option) *LoraNic {
@@ -74,13 +72,8 @@ func (l *LoraNic) sendSelf(kind message.Kind, params message.Parameters, delay t
 func (l *LoraNic) OnMessage(msg message.Message) {
 	switch msg.Kind {
 	case "ota/start":
-		//TODO: reject when already receiving and/or calculate SNR to drop messages as noise
-		if !l.state.receiving {
-			l.state.receiving = true
-			l.sendSelf("ota/finish", msg.Params, l.options.receiveDelay)
-		}
+		l.sendSelf("ota/finish", msg.Params, l.options.receiveDelay)
 	case "ota/finish":
-		l.state.receiving = false
 		l.env.SendMessage(message.Builder{}.
 			WithSrc(l.ID()).
 			WithDst(l.options.parent.ID()).
@@ -88,13 +81,8 @@ func (l *LoraNic) OnMessage(msg message.Message) {
 			WithParams(msg.Params).
 			Build(), 0)
 	case "wire/payload":
-		//TODO: reject when already sending
-		if !l.state.transmitting {
-			l.state.transmitting = true
-			l.sendSelf("wire/finish", msg.Params, l.options.transmitDelay)
-		}
+		l.sendSelf("wire/finish", msg.Params, l.options.transmitDelay)
 	case "wire/finish":
-		l.state.transmitting = false
 		l.env.SendMessage(message.Builder{}.
 			WithSrc(l.ID()).
 			WithDst("radio").
@@ -114,63 +102,6 @@ func (l *LoraNic) Close() error {
 
 var _ simulation.Node = (*LoraNic)(nil)
 
-func (l *LoraNic) Reachable(msg message.Message, from simulation.Node) time.Duration {
-	if from.ID() == l.ID() {
-		return -1
-	}
-	lo, ok := from.(*LoraNic)
-	if !ok {
-		return -1
-	}
-
-	if !matchingFrequencies(l.Frequency(), lo.Frequency(), 0.1) {
-		return -1
-	}
-
-	ps := findPositionableNode(l)
-	pd := findPositionableNode(lo)
-
-	if ps != nil && pd != nil {
-		var p1 = ps.Position()
-		var p2 = pd.Position()
-		var dist float64
-		var zeropos simulation.Position
-		if zeropos != p1 && zeropos != p2 {
-			geodesic.WGS84.Inverse(p1.Lat, p1.Lon, p2.Lat, p2.Lon, &dist, nil, nil)
-			if dist > l.options.fadeMargin {
-				return -1
-			}
-
-			return timeOfFlightAirNsInt(dist)
-		}
-	}
-
-	return 0
-}
-
-const (
-	speedOfLightInt = int64(299_792_458) // m/s
-	airCoefPPM      = int64(999_700)     // 0.9997 expressed in ppm
-)
-
-func timeOfFlightAirNsInt(distanceMeters float64) time.Duration {
-	speedInAir := speedOfLightInt * airCoefPPM / 1_000_000
-	t := int64(distanceMeters*1_000_000_000) / speedInAir
-	return time.Duration(t) * time.Nanosecond
-}
-
-func matchingFrequencies(a, b float64, threshold float64) bool {
-	return math.Abs(a-b) < threshold
-}
-
-func findPositionableNode(src simulation.Node) simulation.Positionable {
-	if src == nil {
-		return nil
-	}
-
-	if p, ok := src.(simulation.Positionable); ok {
-		return p
-	}
-
-	return findPositionableNode(src.Parent())
+func (l *LoraNic) Reachable(dist float64) bool {
+	return dist < l.options.fadeMargin
 }
