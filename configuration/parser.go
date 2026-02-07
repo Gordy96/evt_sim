@@ -33,9 +33,11 @@ func ParseFile(path string, l *zap.Logger) ([]simulation.Node, error) {
 		Variables: env,
 	}
 
+	rest, diag := ParseVariables(file.Body, ctx)
+
 	var root Config
 
-	diag = gohcl.DecodeBody(file.Body, ctx, &root)
+	diag = gohcl.DecodeBody(rest, ctx, &root)
 	if diag.HasErrors() {
 		return nil, diag
 	}
