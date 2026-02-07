@@ -79,7 +79,10 @@ func (r *RadioMedium) OnMessage(msg message.Message) {
 
 		if reachable {
 			ttf := timeOfFlightAirNsInt(dist)
+			parameters := message.Parameters{}
+
 			mb := msg.Builder().
+				WithParams(parameters.WithString("origin", msg.Src)).
 				WithDst(node.ID()).
 				WithSrc("radio").
 				WithKind("ota/start")
