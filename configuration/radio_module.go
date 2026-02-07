@@ -28,7 +28,10 @@ func (r *radioModule) Decode(ctx *hcl.EvalContext, parent simulation.Node, l *za
 
 	switch r.Type {
 	case "lora":
-		var radio LoRaNIC
+		var radio = LoRaNIC{
+			ReceiveDelay:  time.Millisecond,
+			TransmitDelay: time.Millisecond,
+		}
 		diags := gohcl.DecodeBody(r.Rest, ctx, &radio)
 		if diags.HasErrors() {
 			return nil, diags
