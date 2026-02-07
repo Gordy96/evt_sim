@@ -176,7 +176,7 @@ func int8ParamGetter(ctx *C.void, name *C.cchar_t, dst *C.int8_t) C.int {
 		return -1
 	}
 
-	if i, ok := castAnyInt(iint); ok {
+	if i, ok := castAnyInt[int8](iint); ok {
 		*dst = C.int8_t(i)
 		return 0
 	}
@@ -192,7 +192,7 @@ func int16ParamGetter(ctx *C.void, name *C.cchar_t, dst *C.int16_t) C.int {
 		return -1
 	}
 
-	if i, ok := castAnyInt(iint); ok {
+	if i, ok := castAnyInt[int16](iint); ok {
 		*dst = C.int16_t(i)
 		return 0
 	}
@@ -208,7 +208,7 @@ func int32ParamGetter(ctx *C.void, name *C.cchar_t, dst *C.int32_t) C.int {
 		return -1
 	}
 
-	if i, ok := castAnyInt(iint); ok {
+	if i, ok := castAnyInt[int32](iint); ok {
 		*dst = C.int32_t(i)
 		return 0
 	}
@@ -224,7 +224,7 @@ func int64ParamGetter(ctx *C.void, name *C.cchar_t, dst *C.int64_t) C.int {
 		return -1
 	}
 
-	if i, ok := castAnyInt(iint); ok {
+	if i, ok := castAnyInt[int64](iint); ok {
 		*dst = C.int64_t(i)
 		return 0
 	}
@@ -235,12 +235,13 @@ func int64ParamGetter(ctx *C.void, name *C.cchar_t, dst *C.int64_t) C.int {
 //export uint8ParamGetter
 func uint8ParamGetter(ctx *C.void, name *C.cchar_t, dst *C.uint8_t) C.int {
 	a := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
-	iint, ok := a.params[C.GoString(name)]
+	key := C.GoString(name)
+	iint, ok := a.params[key]
 	if !ok {
 		return -1
 	}
 
-	if i, ok := castAnyInt(iint); ok {
+	if i, ok := castAnyUint[uint8](iint); ok {
 		*dst = C.uint8_t(i)
 		return 0
 	}
@@ -256,7 +257,7 @@ func uint16ParamGetter(ctx *C.void, name *C.cchar_t, dst *C.uint16_t) C.int {
 		return -1
 	}
 
-	if i, ok := castAnyInt(iint); ok {
+	if i, ok := castAnyUint[uint16](iint); ok {
 		*dst = C.uint16_t(i)
 		return 0
 	}
@@ -272,7 +273,7 @@ func uint32ParamGetter(ctx *C.void, name *C.cchar_t, dst *C.uint32_t) C.int {
 		return -1
 	}
 
-	if i, ok := castAnyInt(iint); ok {
+	if i, ok := castAnyUint[uint32](iint); ok {
 		*dst = C.uint32_t(i)
 		return 0
 	}
@@ -288,7 +289,7 @@ func uint64ParamGetter(ctx *C.void, name *C.cchar_t, dst *C.uint64_t) C.int {
 		return -1
 	}
 
-	if i, ok := castAnyInt(iint); ok {
+	if i, ok := castAnyUint[uint64](iint); ok {
 		*dst = C.uint64_t(i)
 		return 0
 	}
@@ -296,41 +297,68 @@ func uint64ParamGetter(ctx *C.void, name *C.cchar_t, dst *C.uint64_t) C.int {
 	return -1
 }
 
-func castAnyInt(i interface{}) (int64, bool) {
+func castAnyInt[T int | int8 | int16 | int32 | int64](i interface{}) (T, bool) {
 	if i, ok := i.(int64); ok {
-		return i, true
+		return T(i), true
 	}
 	if i, ok := i.(int32); ok {
-		return int64(i), true
+		return T(i), true
 	}
 	if i, ok := i.(int16); ok {
-		return int64(i), true
+		return T(i), true
 	}
 	if i, ok := i.(int8); ok {
-		return int64(i), true
+		return T(i), true
 	}
 	if i, ok := i.(int); ok {
-		return int64(i), true
+		return T(i), true
+	}
+	if i, ok := i.(bool); ok {
+		if i {
+			return T(1), true
+		}
+		return T(0), true
 	}
 
 	return 0, false
 }
 
-func castAnyUint(i interface{}) (uint64, bool) {
+func castAnyUint[T uint | uint8 | uint16 | uint32 | uint64](i interface{}) (T, bool) {
 	if i, ok := i.(uint64); ok {
-		return i, true
+		return T(i), true
 	}
 	if i, ok := i.(uint32); ok {
-		return uint64(i), true
+		return T(i), true
 	}
 	if i, ok := i.(uint16); ok {
-		return uint64(i), true
+		return T(i), true
 	}
 	if i, ok := i.(uint8); ok {
-		return uint64(i), true
+		return T(i), true
 	}
 	if i, ok := i.(uint); ok {
-		return uint64(i), true
+		return T(i), true
+	}
+	if i, ok := i.(int64); ok {
+		return T(i), true
+	}
+	if i, ok := i.(int32); ok {
+		return T(i), true
+	}
+	if i, ok := i.(int16); ok {
+		return T(i), true
+	}
+	if i, ok := i.(int8); ok {
+		return T(i), true
+	}
+	if i, ok := i.(int); ok {
+		return T(i), true
+	}
+	if i, ok := i.(bool); ok {
+		if i {
+			return T(1), true
+		}
+		return T(0), true
 	}
 
 	return 0, false
