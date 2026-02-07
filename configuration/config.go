@@ -14,13 +14,13 @@ type Config struct {
 }
 
 func (c *Config) Decode(ctx *hcl.EvalContext, l *zap.Logger) ([]simulation.Node, error) {
-	res := make([]simulation.Node, len(c.Modules))
-	for i, module := range c.Modules {
+	var res []simulation.Node
+	for _, module := range c.Modules {
 		m, err := module.Decode(ctx.NewChild(), l)
 		if err != nil {
 			return nil, err
 		}
-		res[i] = m
+		res = append(res, m...)
 	}
 
 	//TODO: add medium

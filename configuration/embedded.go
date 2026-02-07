@@ -8,13 +8,14 @@ import (
 )
 
 type embeddedModule struct {
+	ID          string            `hcl:"id"`
 	Radios      []radioModule     `hcl:"radio,block"`
 	Application applicationModule `hcl:"application,block"`
 	Position    position          `hcl:"position,block"`
 }
 
-func (e *embeddedModule) Decode(ctx *hcl.EvalContext, id string, l *zap.Logger) (simulation.Node, error) {
-	app, err := e.Application.Decode(ctx.NewChild(), l.Named(id))
+func (e *embeddedModule) Decode(ctx *hcl.EvalContext, l *zap.Logger) (simulation.Node, error) {
+	app, err := e.Application.Decode(ctx.NewChild(), l.Named(e.ID))
 	if err != nil {
 		return nil, err
 	}
@@ -32,7 +33,7 @@ func (e *embeddedModule) Decode(ctx *hcl.EvalContext, id string, l *zap.Logger) 
 		}))
 	}
 
-	dev := embedded.New(id, app, ops...)
+	dev := embedded.New(e.ID, app, ops...)
 
 	for _, radio := range e.Radios {
 		r, err := radio.Decode(ctx.NewChild(), dev, l)
