@@ -7,7 +7,11 @@ import (
 )
 
 func main() {
-	logger, _ := zap.NewDevelopment()
+	logCfg := zap.NewProductionConfig()
+	logCfg.Level = zap.NewAtomicLevelAt(zap.DebugLevel)
+	logCfg.EncoderConfig.MessageKey = "line"
+
+	logger, _ := logCfg.Build()
 	nodes, err := configuration.ParseFile("cmd/parser/config.hcl", logger)
 	if err != nil {
 		logger.Sugar().Fatal(err)
