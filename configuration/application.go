@@ -2,11 +2,13 @@ package configuration
 
 import (
 	"errors"
+	"math"
 
 	"github.com/Gordy96/evt-sim/modules/adapter"
 	"github.com/Gordy96/evt-sim/modules/device"
 	"github.com/hashicorp/hcl/v2"
 	"github.com/hashicorp/hcl/v2/gohcl"
+	"github.com/zclconf/go-cty/cty"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -32,10 +34,10 @@ func (a *applicationModule) Decode(ctx *hcl.EvalContext, l *zap.Logger) (device.
 }
 
 type SharedCApplication struct {
-	Path        string   `hcl:"path"`
-	Concurrent  bool     `hcl:"concurrent,optional"`
-	DumpPackets bool     `hcl:"dump_packets,optional"`
-	Extras      hcl.Body `hcl:",remain"`
+	Path        string    `hcl:"path"`
+	Concurrent  bool      `hcl:"concurrent,optional"`
+	DumpPackets bool      `hcl:"dump_packets,optional"`
+	Parameters  cty.Value `hcl:"parameters,optional"`
 }
 
 func (a *SharedCApplication) Decode(ctx *hcl.EvalContext, l *zap.Logger) (device.Application, error) {
@@ -44,7 +46,7 @@ func (a *SharedCApplication) Decode(ctx *hcl.EvalContext, l *zap.Logger) (device
 		return nil, err
 	}
 
-	params, err := a.finalize()
+	params, err := a.finalize(ctx)
 
 	if err != nil {
 		return nil, err
@@ -63,32 +65,26 @@ func (a *SharedCApplication) Decode(ctx *hcl.EvalContext, l *zap.Logger) (device
 	)
 }
 
-func (a *SharedCApplication) finalize() (map[string]interface{}, error) {
-	if a.Extras == nil {
+func (a *SharedCApplication) finalize(ctx *hcl.EvalContext) (map[string]interface{}, error) {
+	if a.Parameters.IsNull() || !a.Parameters.CanIterateElements() {
 		return nil, nil
-	}
-
-	// Decode attributes only
-	attrs, diags := a.Extras.JustAttributes()
-	if diags.HasErrors() {
-		return nil, diags
 	}
 
 	values := map[string]interface{}{}
 
-	for name, attr := range attrs {
-		v, diag := attr.Expr.Value(nil)
-		if diag.HasErrors() {
-			return nil, diag
-		}
-
+	for name, v := range a.Parameters.AsValueMap() {
 		switch v.Type().FriendlyName() {
 		case "string":
 			values[name] = v.AsString()
 		case "number":
 			f := v.AsBigFloat()
 			if f.IsInt() {
-				values[name], _ = f.Int64()
+				i, _ := f.Int64()
+				if i > math.MaxInt64 {
+					values[name], _ = f.Uint64()
+				} else {
+					values[name] = i
+				}
 			} else {
 				values[name], _ = f.Float64()
 			}
