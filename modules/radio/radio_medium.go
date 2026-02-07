@@ -2,6 +2,7 @@ package radio
 
 import (
 	"math"
+	"slices"
 	"time"
 
 	"github.com/Gordy96/evt-sim/simulation"
@@ -74,21 +75,42 @@ func (r *RadioMedium) OnMessage(msg message.Message) {
 		r.cacheRadioNodes(nodes)
 	}
 
+	var cache []selectionSetEntry
 	for _, node := range r.radios {
 		reachable, dist := distanceToOther(src, node)
 
 		if reachable {
-			ttf := timeOfFlightAirNsInt(dist)
-			parameters := message.Parameters{}
-
-			mb := msg.Builder().
-				WithParams(parameters.WithString("origin", msg.Src)).
-				WithDst(node.ID()).
-				WithSrc("radio").
-				WithKind("ota/start")
-			r.env.SendMessage(mb.Build(), ttf)
+			cache = append(cache, selectionSetEntry{
+				node: node,
+				dist: dist,
+			})
 		}
 	}
+
+	slices.SortFunc(cache, func(a, b selectionSetEntry) int {
+		if a.dist > b.dist {
+			return -1
+		}
+		return 1
+	})
+
+	for _, c := range cache {
+		ttf := timeOfFlightAirNsInt(c.dist)
+		parameters := message.Parameters{}
+
+		mb := msg.Builder().
+			WithParams(parameters.WithString("origin", msg.Src)).
+			WithDst(c.node.ID()).
+			WithSrc("radio").
+			WithKind("ota/start")
+		r.env.SendMessage(mb.Build(), ttf)
+	}
+
+}
+
+type selectionSetEntry struct {
+	node simulation.Node
+	dist float64
 }
 
 type radioNode interface {
