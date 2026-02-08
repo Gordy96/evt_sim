@@ -3,6 +3,7 @@ package simulation
 import (
 	"fmt"
 	"strconv"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -11,13 +12,17 @@ import (
 )
 
 type Simulation struct {
-	l       *zap.Logger
-	pq      *message.PriorityQueue
-	nodes   map[string]Node
-	init    []Node
-	now     time.Time
-	elapsed time.Duration
-	indexer atomic.Uint64
+	l             *zap.Logger
+	pq            *message.PriorityQueue
+	nodes         map[string]Node
+	init          []Node
+	now           time.Time
+	elapsed       time.Duration
+	indexer       atomic.Uint64
+	wg            sync.WaitGroup
+	readyLock     sync.WaitGroup
+	realtime      bool
+	lastEventTime time.Time
 }
 
 func (s *Simulation) Nodes() map[string]Node {
@@ -27,7 +32,21 @@ func (s *Simulation) Nodes() map[string]Node {
 func (s *Simulation) SendMessage(msg message.Message, delay time.Duration) {
 	msg.ID = strconv.FormatUint(s.indexer.Add(1), 10)
 	msg.Timestamp = s.now.Add(delay)
-	s.pq.Push(&msg)
+	if s.realtime {
+		s.wg.Add(1)
+		s.readyLock.Wait()
+		time.AfterFunc(delay, func() {
+			defer s.wg.Done()
+
+			s.lastEventTime = time.Now()
+
+			s.l.Debug("Message", zap.Any("msg", &msg))
+			node := s.FindNode(msg.Dst)
+			node.OnMessage(msg)
+		})
+	} else {
+		s.pq.Push(&msg)
+	}
 }
 
 func (s *Simulation) Run() {
@@ -36,28 +55,40 @@ func (s *Simulation) Run() {
 
 	s.l.Info("start")
 
+	s.readyLock.Add(1)
+
 	for _, node := range s.init {
 		node.Init(s)
 	}
 
-	deadline := time.Now().Add(time.Second)
-	lastEventTime := time.Now()
+	s.readyLock.Done()
 
-	for time.Now().Before(deadline) {
-		if s.pq.Len() > 0 {
-			msg := s.pq.Pop()
-			s.l.Debug("Message", zap.Any("msg", msg))
-			s.elapsed += msg.Timestamp.Sub(s.now)
-			s.now = msg.Timestamp
-			node := s.FindNode(msg.Dst)
-			node.OnMessage(*msg)
+	if !s.realtime {
+		deadline := time.Now().Add(time.Second)
+		s.lastEventTime = time.Now()
 
-			deadline = time.Now().Add(time.Second)
-			lastEventTime = time.Now()
+		for time.Now().Before(deadline) {
+			if s.pq.Len() > 0 {
+				msg := s.pq.Pop()
+				s.l.Debug("Message", zap.Any("msg", msg))
+				s.elapsed += msg.Timestamp.Sub(s.now)
+				s.now = msg.Timestamp
+				node := s.FindNode(msg.Dst)
+				node.OnMessage(*msg)
+
+				deadline = time.Now().Add(time.Second)
+				s.lastEventTime = time.Now()
+			}
 		}
 	}
 
-	s.l.Info("finished", zap.Duration("elapsed", lastEventTime.Sub(start)), zap.Duration("simulation_time", s.now.Sub(time.Time{})))
+	time.Sleep(time.Second)
+	s.wg.Wait()
+
+	s.l.Info("finished",
+		zap.Duration("elapsed", s.lastEventTime.Sub(start)),
+		zap.Duration("simulation_time", s.now.Sub(time.Time{})),
+	)
 
 	for _, node := range s.init {
 		node.Close()
@@ -96,10 +127,11 @@ func (s *Simulation) addNode(n Node) error {
 
 func NewSimulation(l *zap.Logger, nodes []Node) (*Simulation, error) {
 	s := &Simulation{
-		l:     l.Named("simulation"),
-		pq:    message.NewQueue(),
-		nodes: make(map[string]Node),
-		init:  make([]Node, 0),
+		l:        l.Named("simulation"),
+		pq:       message.NewQueue(),
+		nodes:    make(map[string]Node),
+		init:     make([]Node, 0),
+		realtime: false,
 	}
 
 	for _, node := range nodes {
