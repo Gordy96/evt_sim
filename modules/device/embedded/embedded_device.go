@@ -7,6 +7,7 @@ import (
 	"github.com/Gordy96/evt-sim/simulation"
 	"github.com/Gordy96/evt-sim/simulation/message"
 	"go.uber.org/multierr"
+	"go.uber.org/zap"
 )
 
 type namedConnection struct {
@@ -33,7 +34,7 @@ func WithConnection(name string, dst simulation.Node) DeviceOption {
 	}
 }
 
-func New(id string, app device.Application, options ...DeviceOption) *EmbeddedDevice {
+func New(id string, app device.Application, logger *zap.Logger, options ...DeviceOption) *EmbeddedDevice {
 	var o deviceOptions
 	for _, option := range options {
 		option(&o)
@@ -46,6 +47,7 @@ func New(id string, app device.Application, options ...DeviceOption) *EmbeddedDe
 		radios:     make([]simulation.Node, 0),
 		portLookup: make(map[string]string),
 		options:    o,
+		logger:     logger,
 	}
 
 	for _, conn := range o.connections {
@@ -67,6 +69,7 @@ type EmbeddedDevice struct {
 	radios     []simulation.Node
 	portLookup map[string]string
 	options    deviceOptions
+	logger     *zap.Logger
 }
 
 func (e *EmbeddedDevice) Parent() simulation.Node {
@@ -114,6 +117,11 @@ func (e *EmbeddedDevice) schedule(key string, timeMS int) {
 }
 
 func (e *EmbeddedDevice) Init(env simulation.Environment) {
+	e.logger.Debug("EmbeddedDevice.Init",
+		zap.String("id", e.ID()),
+		zap.Any("position", e.options.position),
+	)
+
 	e.env = env
 
 	for _, node := range e.radios {

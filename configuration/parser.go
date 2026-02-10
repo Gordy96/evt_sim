@@ -12,7 +12,13 @@ import (
 	"go.uber.org/zap"
 )
 
-func ParseFile(path string, l *zap.Logger) ([]simulation.Node, error) {
+type Simulation struct {
+	Nodes    []simulation.Node
+	Realtime bool
+	Name     string
+}
+
+func ParseFile(path string, l *zap.Logger) (*Simulation, error) {
 	parser := hclparse.NewParser()
 	file, diag := parser.ParseHCLFile(path)
 	if diag.HasErrors() {
@@ -42,7 +48,16 @@ func ParseFile(path string, l *zap.Logger) ([]simulation.Node, error) {
 		return nil, diag
 	}
 
-	return root.Decode(ctx, l)
+	nodes, err := root.Decode(ctx, l)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Simulation{
+		Nodes:    nodes,
+		Realtime: root.Realtime,
+		Name:     root.Name,
+	}, nil
 }
 
 func topContext(ctx *hcl.EvalContext) *hcl.EvalContext {

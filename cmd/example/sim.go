@@ -74,6 +74,7 @@ func main() {
 				initializer: true,
 				l:           logger.Named("first/app"),
 			},
+			logger,
 			embedded.WithConnection(
 				"radio",
 				lora.New(
@@ -90,6 +91,7 @@ func main() {
 			&FakeApp{
 				l: logger.Named("second/app"),
 			},
+			logger,
 			embedded.WithConnection(
 				"radio",
 				lora.New(
@@ -106,7 +108,7 @@ func main() {
 		//then it decides what simulation should receive message (effectively duplicating messages)
 		//based on node parameters (potentially simulation can have ports/interfaces, that would hold parameters/talk to 'aether')
 		radio.NewRadioMedium(logger),
-	})
+	}, false)
 
 	if err != nil {
 		logger.Fatal("Failed to create simulation", zap.Error(err))

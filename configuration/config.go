@@ -9,6 +9,7 @@ import (
 
 type Config struct {
 	Name        string       `hcl:"name"`
+	Realtime    bool         `hcl:"realtime,optional"`
 	Modules     []Module     `hcl:"module,block"`
 	RadioMedium *radioMedium `hcl:"radio_medium,block"`
 }

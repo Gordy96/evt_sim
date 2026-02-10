@@ -125,13 +125,13 @@ func (s *Simulation) addNode(n Node) error {
 	return nil
 }
 
-func NewSimulation(l *zap.Logger, nodes []Node) (*Simulation, error) {
+func NewSimulation(l *zap.Logger, nodes []Node, realtime bool) (*Simulation, error) {
 	s := &Simulation{
 		l:        l.Named("simulation"),
 		pq:       message.NewQueue(),
 		nodes:    make(map[string]Node),
 		init:     make([]Node, 0),
-		realtime: false,
+		realtime: realtime,
 	}
 
 	for _, node := range nodes {

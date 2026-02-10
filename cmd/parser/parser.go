@@ -12,12 +12,12 @@ func main() {
 	logCfg.EncoderConfig.MessageKey = "line"
 
 	logger, _ := logCfg.Build()
-	nodes, err := configuration.ParseFile("cmd/parser/config.hcl", logger)
+	simConfig, err := configuration.ParseFile("cmd/parser/config.hcl", logger)
 	if err != nil {
 		logger.Sugar().Fatal(err)
 	}
 
-	sim, err := simulation.NewSimulation(logger, nodes)
+	sim, err := simulation.NewSimulation(logger, simConfig.Nodes, simConfig.Realtime)
 
 	if err != nil {
 		logger.Sugar().Fatal(err)

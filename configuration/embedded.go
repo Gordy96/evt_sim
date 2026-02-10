@@ -33,7 +33,7 @@ func (e *embeddedModule) Decode(ctx *hcl.EvalContext, l *zap.Logger) (simulation
 		}))
 	}
 
-	dev := embedded.New(e.ID, app, ops...)
+	dev := embedded.New(e.ID, app, l.Named(e.ID), ops...)
 
 	for _, radio := range e.Radios {
 		r, err := radio.Decode(ctx.NewChild(), dev, l)

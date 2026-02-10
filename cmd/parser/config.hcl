@@ -52,6 +52,7 @@ variable "devices" {
           dest      = 3
           parallel  = true
           initiator = true
+          routing_table = "3:2|2:2"
         }
       }
     },
@@ -68,6 +69,24 @@ variable "devices" {
         params = {
           address   = 2
           parallel  = true
+          routing_table = "1:1|3:3|4:4"
+        }
+      }
+    },
+    {
+      id = "four"
+      radio = default_radio
+      position = {
+        lat  = 50.44505
+        lon  = 30.44371
+        elev = 200
+      }
+      app = {
+        so_path = "${APP_SO_PATH}"
+        params = {
+          address   = 4
+          parallel  = true
+          routing_table = "1:1|3:3|2:2"
         }
       }
     },
@@ -84,6 +103,7 @@ variable "devices" {
         params = {
           address   = 3
           parallel  = true
+          routing_table = "1:2|2:2|4:4"
         }
       }
     }
