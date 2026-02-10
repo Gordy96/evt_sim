@@ -1,6 +1,7 @@
 package configuration
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/hashicorp/hcl/v2/gohcl"
 	"github.com/hashicorp/hcl/v2/hclparse"
 	"github.com/zclconf/go-cty/cty"
+	"github.com/zclconf/go-cty/cty/function"
 	"go.uber.org/zap"
 )
 
@@ -37,6 +39,19 @@ func ParseFile(path string, l *zap.Logger) (*Simulation, error) {
 
 	ctx := &hcl.EvalContext{
 		Variables: env,
+		Functions: map[string]function.Function{
+			"itoa": function.New(&function.Spec{
+				Description:  "converts int to string",
+				Params:       []function.Parameter{{Name: "i", Type: cty.Number}},
+				VarParam:     nil,
+				Type:         function.StaticReturnType(cty.String),
+				RefineResult: nil,
+				Impl: func(args []cty.Value, retType cty.Type) (cty.Value, error) {
+					i, _ := args[0].AsBigFloat().Int64()
+					return cty.StringVal(fmt.Sprintf("%d", i)), nil
+				},
+			}),
+		},
 	}
 
 	rest, diag := ParseVariables(file.Body, ctx)

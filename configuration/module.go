@@ -30,10 +30,11 @@ func (m *Module) Decode(ctx *hcl.EvalContext, l *zap.Logger) ([]simulation.Node,
 
 		var res []simulation.Node
 
-		for _, v := range m.ForEach.Elements() {
+		for i, v := range m.ForEach.Elements() {
 			subctx := ctx.NewChild()
 			subctx.Variables = map[string]cty.Value{
 				"each": v,
+				"iter": i,
 			}
 			e, err := m.decodeOne(subctx, l)
 			if err != nil {
