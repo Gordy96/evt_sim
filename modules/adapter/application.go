@@ -120,17 +120,20 @@ type timerInterruptConfig struct {
 //export attachTimeInterrupt
 func attachTimeInterrupt(ctx *C.void, timeMS C.int, periodic C.short, cb C.interrupt_callback_t) {
 	c := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
-	cfg := timerInterruptConfig{
-		timeMS:   int(timeMS),
-		periodic: int(periodic) > 0,
-		cb:       cb,
-	}
+
 	key := fmt.Sprintf("%d", int(timeMS))
-	if cfg.periodic {
+	if int(periodic) > 0 {
 		key += "_periodic"
 	}
-	c.timerInterrupts[key] = cfg
-	c.schedule(key, cfg.timeMS)
+	if _, ok := c.timerInterrupts[key]; !ok {
+		cfg := timerInterruptConfig{
+			timeMS:   int(timeMS),
+			periodic: int(periodic) > 0,
+			cb:       cb,
+		}
+		c.timerInterrupts[key] = cfg
+	}
+	c.schedule(key, int(timeMS))
 }
 
 //export stringParamGetter
@@ -470,10 +473,11 @@ func (a *Application) Init(schedule func(string, int), ports ...device.Port) err
 
 func (a *Application) TriggerTimeInterrupt(key string, now time.Duration) error {
 	if i, ok := a.timerInterrupts[key]; ok {
+		t := C.uint32_t(now / time.Millisecond)
 		if a.concurrent {
-			go C.tInterrupt(unsafe.Pointer(a.selfUnsafe), C.uint32_t(now), i.cb)
+			go C.tInterrupt(unsafe.Pointer(a.selfUnsafe), t, i.cb)
 		} else {
-			C.tInterrupt(unsafe.Pointer(a.selfUnsafe), C.uint32_t(now), i.cb)
+			C.tInterrupt(unsafe.Pointer(a.selfUnsafe), t, i.cb)
 		}
 		if i.periodic {
 			a.schedule(key, i.timeMS)
@@ -485,10 +489,11 @@ func (a *Application) TriggerTimeInterrupt(key string, now time.Duration) error 
 
 func (a *Application) TriggerPortInterrupt(port string, now time.Duration) error {
 	if i, ok := a.portInterrupts[port]; ok {
+		t := C.uint32_t(now / time.Millisecond)
 		if a.concurrent {
-			go C.tInterrupt(unsafe.Pointer(a.selfUnsafe), C.uint32_t(now), i.cb)
+			go C.tInterrupt(unsafe.Pointer(a.selfUnsafe), t, i.cb)
 		} else {
-			C.tInterrupt(unsafe.Pointer(a.selfUnsafe), C.uint32_t(now), i.cb)
+			C.tInterrupt(unsafe.Pointer(a.selfUnsafe), t, i.cb)
 		}
 	}
 

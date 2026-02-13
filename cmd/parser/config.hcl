@@ -75,6 +75,7 @@ module embedded {
       dest      = iter == 0 ? 3 : 0
       parallel  = true
       remote_sched_timer = true
+      timeout = 1000
       initiator = iter == 0
       routing_table = routes[iter]
     }

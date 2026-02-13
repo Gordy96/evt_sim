@@ -38,6 +38,7 @@ func (s *Simulation) SendMessage(msg message.Message, delay time.Duration) {
 		time.AfterFunc(delay, func() {
 			defer s.wg.Done()
 
+			msg.Timestamp = time.Now()
 			s.lastEventTime = time.Now()
 
 			s.l.Debug("Message", zap.Any("msg", &msg))
@@ -70,9 +71,9 @@ func (s *Simulation) Run() {
 		for time.Now().Before(deadline) {
 			if s.pq.Len() > 0 {
 				msg := s.pq.Pop()
-				s.l.Debug("Message", zap.Any("msg", msg))
-				s.elapsed += msg.Timestamp.Sub(s.now)
+				s.elapsed = msg.Timestamp.Sub(time.Time{})
 				s.now = msg.Timestamp
+				s.l.Debug("Message", zap.Any("msg", msg), zap.Duration("elapsed", s.elapsed))
 				node := s.FindNode(msg.Dst)
 				node.OnMessage(*msg)
 
