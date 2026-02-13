@@ -88,7 +88,7 @@ func (e *EmbeddedDevice) OnMessage(msg message.Message) {
 	switch msg.Kind {
 	case "interrupt/delay":
 		key, _ := msg.Params.GetString("key")
-		e.app.TriggerTimeInterrupt(key)
+		e.app.TriggerTimeInterrupt(key, msg.Timestamp.Sub(time.Time{}))
 	case "interrupt/port":
 		if portName, ok := e.portLookup[msg.Src]; ok {
 			port := e.ports[portName]

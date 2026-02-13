@@ -27,8 +27,9 @@ typedef enum {
 typedef int    (*read_cb_t)(void *ctx, const char* port, char* buf, size_t size);
 typedef int    (*write_cb_t)(void *ctx, const char* port, char* buf, size_t size);
 typedef void   (*interrupt_callback_t)(void *ctx);
+typedef void   (*time_interrupt_callback_t)(void *ctx, uint32_t now);
 typedef void   (*attach_port_interrupt_t)(void *ctx, const char* port, interrupt_callback_t cb);
-typedef void   (*attach_time_interrupt_t)(void *ctx, int time_ms, short periodic, interrupt_callback_t cb);
+typedef void   (*attach_time_interrupt_t)(void *ctx, int time_ms, short periodic, time_interrupt_callback_t cb);
 typedef void   (*shutdown_t)(void *ctx);
 typedef void*  (*getter_t)(void *ctx, const char* name);
 typedef void   (*setter_t)(void *ctx, const char* name, void* value);

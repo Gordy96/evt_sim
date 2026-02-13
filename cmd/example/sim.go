@@ -1,6 +1,8 @@
 package main
 
 import (
+	"time"
+
 	"github.com/Gordy96/evt-sim/modules/device"
 	"github.com/Gordy96/evt-sim/modules/device/embedded"
 	"github.com/Gordy96/evt-sim/modules/device/lora"
@@ -52,7 +54,7 @@ func (f *FakeApp) TriggerPortInterrupt(port string) error {
 	return nil
 }
 
-func (f *FakeApp) TriggerTimeInterrupt(key string) error {
+func (f *FakeApp) TriggerTimeInterrupt(key string, now time.Duration) error {
 	if key == "scheduled_answer" {
 		f.ports["radio"].Write([]byte("answer"))
 	}
