@@ -95,7 +95,7 @@ func (e *EmbeddedDevice) OnMessage(msg message.Message) {
 
 			if payload, ok := msg.Params.GetBytes("payload"); ok {
 				port.buf = append(port.buf[:0], payload...)
-				e.app.TriggerPortInterrupt(portName)
+				e.app.TriggerPortInterrupt(portName, msg.Timestamp.Sub(time.Time{}))
 			}
 		}
 	}

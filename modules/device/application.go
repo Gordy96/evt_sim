@@ -10,7 +10,7 @@ type Port interface {
 
 type Application interface {
 	Init(scheduler func(key string, timeMS int), ports ...Port) error
-	TriggerPortInterrupt(port string) error
+	TriggerPortInterrupt(port string, now time.Duration) error
 	TriggerTimeInterrupt(key string, now time.Duration) error
 	Close() error
 }

@@ -38,7 +38,7 @@ func (f *FakeApp) Init(scheduler func(key string, timeMS int), ports ...device.P
 	return nil
 }
 
-func (f *FakeApp) TriggerPortInterrupt(port string) error {
+func (f *FakeApp) TriggerPortInterrupt(port string, now time.Duration) error {
 	var buf [128]byte
 	n, err := f.ports[port].Read(buf[:])
 	if err != nil {

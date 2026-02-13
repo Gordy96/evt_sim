@@ -13,7 +13,7 @@ typedef const char cchar_t;
 extern int   goRead(void *ctx, const char* port, char* buf, size_t size);
 extern int   goWrite(void *ctx, const char* port, char* buf, size_t size);
 extern void  attachPortInterrupt(void *ctx, const char* port, interrupt_callback_t cb);
-extern void  attachTimeInterrupt(void *ctx, int time_ms, short periodic, time_interrupt_callback_t cb);
+extern void  attachTimeInterrupt(void *ctx, int time_ms, short periodic, interrupt_callback_t cb);
 extern void* dataGetter(void *ctx, const char* name);
 extern void  dataSetter(void *ctx, const char* name, void* value);
 extern int   stringParamGetter(void *ctx, const char* name, char* buf, size_t size);
@@ -60,10 +60,8 @@ static void tInit(void *ctx, init_func_t init) {
 static void tShutdown(void *ctx, shutdown_t shutdown) {
 	shutdown(ctx);
 }
-static void tInterrupt(void *ctx, interrupt_callback_t cb) {
-	cb(ctx);
-}
-static void tTimeInterrupt(void *ctx, uint32_t now, time_interrupt_callback_t cb) {
+
+static void tInterrupt(void *ctx, uint32_t now, interrupt_callback_t cb) {
 	cb(ctx, now);
 }
 */
@@ -116,11 +114,11 @@ func attachPortInterrupt(ctx *C.void, port *C.cchar_t, cb C.interrupt_callback_t
 type timerInterruptConfig struct {
 	timeMS   int
 	periodic bool
-	cb       C.time_interrupt_callback_t
+	cb       C.interrupt_callback_t
 }
 
 //export attachTimeInterrupt
-func attachTimeInterrupt(ctx *C.void, timeMS C.int, periodic C.short, cb C.time_interrupt_callback_t) {
+func attachTimeInterrupt(ctx *C.void, timeMS C.int, periodic C.short, cb C.interrupt_callback_t) {
 	c := cgo.Handle(unsafe.Pointer(ctx)).Value().(*Application)
 	cfg := timerInterruptConfig{
 		timeMS:   int(timeMS),
@@ -473,9 +471,9 @@ func (a *Application) Init(schedule func(string, int), ports ...device.Port) err
 func (a *Application) TriggerTimeInterrupt(key string, now time.Duration) error {
 	if i, ok := a.timerInterrupts[key]; ok {
 		if a.concurrent {
-			go C.tTimeInterrupt(unsafe.Pointer(a.selfUnsafe), C.uint32_t(now), i.cb)
+			go C.tInterrupt(unsafe.Pointer(a.selfUnsafe), C.uint32_t(now), i.cb)
 		} else {
-			C.tTimeInterrupt(unsafe.Pointer(a.selfUnsafe), C.uint32_t(now), i.cb)
+			C.tInterrupt(unsafe.Pointer(a.selfUnsafe), C.uint32_t(now), i.cb)
 		}
 		if i.periodic {
 			a.schedule(key, i.timeMS)
@@ -485,12 +483,12 @@ func (a *Application) TriggerTimeInterrupt(key string, now time.Duration) error 
 	return nil
 }
 
-func (a *Application) TriggerPortInterrupt(port string) error {
+func (a *Application) TriggerPortInterrupt(port string, now time.Duration) error {
 	if i, ok := a.portInterrupts[port]; ok {
 		if a.concurrent {
-			go C.tInterrupt(unsafe.Pointer(a.selfUnsafe), i.cb)
+			go C.tInterrupt(unsafe.Pointer(a.selfUnsafe), C.uint32_t(now), i.cb)
 		} else {
-			C.tInterrupt(unsafe.Pointer(a.selfUnsafe), i.cb)
+			C.tInterrupt(unsafe.Pointer(a.selfUnsafe), C.uint32_t(now), i.cb)
 		}
 	}
 
