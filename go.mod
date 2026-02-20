@@ -1,6 +1,6 @@
 module github.com/Gordy96/evt-sim
 
-go 1.25.1
+go 1.25.7
 
 require (
 	github.com/Gordy96/cgo_dl v0.0.1
